@@ -116,7 +116,7 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         else
             model = nf.LoadModelPMX(modelFilename, modelDir, layerCount);
         if (model == 0) {
-            logger.info(String.format("Cannot open model: '%s'.", modelFilename));
+            logger.warn(String.format("Cannot open model: '%s'.", modelFilename));
             return null;
         }
         MMDModelOpenGL result = createFromHandle(model, modelDir);
@@ -485,7 +485,6 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         if(MmdSkinClient.usingMMDShader == 0){
             ShaderInstance mcShader = RenderSystem.getShader();
             if (mcShader == null) {
-                logger.debug("RenderSystem.getShader() 返回 null，跳过本帧渲染");
                 RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
                 return;
             }

@@ -163,7 +163,7 @@ public class MMDModelGpuSkinning extends AbstractMMDModel {
         }
         
         if (model == 0) {
-            logger.info("无法打开模型: '{}'", modelFilename);
+            logger.warn("无法打开模型: '{}'", modelFilename);
             return null;
         }
         
@@ -225,7 +225,6 @@ public class MMDModelGpuSkinning extends AbstractMMDModel {
                 logger.warn("模型骨骼数量 ({}) 超过最大支持 ({})，部分骨骼可能无法正确渲染", 
                     boneCount, ShaderConstants.MAX_BONES);
             }
-            logger.info("GPU 蒙皮模型加载（Compute Shader）: {} 顶点, {} 骨骼", vertexCount, boneCount);
             
             // 创建 VAO 和 VBO
             vao = GL46C.glGenVertexArrays();
@@ -412,7 +411,6 @@ public class MMDModelGpuSkinning extends AbstractMMDModel {
             if (morphCount > 0) {
                 morphWeightsBuffer = MemoryUtil.memAllocFloat(morphCount);
                 morphBuffers = SkinningComputeShader.createMorphBuffers(morphCount);
-                logger.info("GPU Morph 初始化: {} 个顶点 Morph", morphCount);
             }
             
             // 初始化 UV Morph 数据
@@ -422,7 +420,6 @@ public class MMDModelGpuSkinning extends AbstractMMDModel {
                 uvMorphWeightsBuf = MemoryUtil.memAllocFloat(uvMorphCnt);
                 uvMorphBuffers = SkinningComputeShader.createUvMorphBuffers(uvMorphCnt);
                 skinnedUvBuf = SkinningComputeShader.createSkinnedUvBuffer(vertexCount);
-                logger.info("GPU UV Morph 初始化: {} 个 UV Morph", uvMorphCnt);
             } else {
                 // 即使没有 UV Morph，也创建蒙皮 UV 输出缓冲区用于 Compute Shader 写入
                 skinnedUvBuf = SkinningComputeShader.createSkinnedUvBuffer(vertexCount);
@@ -500,7 +497,6 @@ public class MMDModelGpuSkinning extends AbstractMMDModel {
             nf.SetAutoBlinkEnabled(model, true);
             
             GL46C.glBindVertexArray(0);
-            logger.info("GPU 蒙皮模型创建成功（Compute Shader）: {} 顶点, {} 骨骼", vertexCount, boneCount);
             return result;
             
         } catch (Exception e) {
