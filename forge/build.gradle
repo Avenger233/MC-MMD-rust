@@ -20,14 +20,18 @@ loom {
             client()
             name "Forge Client"
             runDir "run/client"
-            vmArgs "-Dneoforge.enabledGameTestNamespace=template-mod"
             programArgs "--username", "Player1"
+        }
+        client2 {
+            client()
+            name "Forge Client 2"
+            runDir "run/client2"
+            programArgs "--username", "Player2"
         }
         server {
             server()
             name "Forge Server"
             runDir "run/server"
-            vmArgs "-Dneoforge.enabledGameTestNamespace=template-mod"
         }
     }
 }

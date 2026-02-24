@@ -11,6 +11,27 @@ loom {
 	mixin {
 		defaultRefmapName = "mmdskin-fabric-refmap.json"
 	}
+	runs {
+		client {
+			client()
+			name "Fabric Client"
+			runDir "run/client"
+			programArgs "--username", "Player1"
+			vmArgs "-Xmx2G", "-Xms1G"
+		}
+		client2 {
+			client()
+			name "Fabric Client 2"
+			runDir "run/client2"
+			programArgs "--username", "Player2"
+			vmArgs "-Xmx2G", "-Xms1G"
+		}
+		server {
+			server()
+			name "Fabric Server"
+			runDir "run/server"
+		}
+	}
 }
 
 configurations {
