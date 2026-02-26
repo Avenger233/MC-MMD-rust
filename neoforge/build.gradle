@@ -16,6 +16,13 @@ loom {
             vmArgs "-Dneoforge.enabledGameTestNamespace=mmdskin"
             programArgs "--username", "Player1"
         }
+        client2 {
+            client()
+            name "NeoForge Client 2"
+            runDir "run/client2"
+            vmArgs "-Dneoforge.enabledGameTestNamespace=mmdskin"
+            programArgs "--username", "Player2"
+        }
         server {
             server()
             name "NeoForge Server"
