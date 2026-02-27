@@ -5,6 +5,7 @@ import com.shiroha.mmdskin.renderer.camera.MMDCameraController;
 import com.shiroha.mmdskin.renderer.core.EyeTrackingHelper;
 import com.shiroha.mmdskin.renderer.core.IMMDModel;
 import com.shiroha.mmdskin.renderer.core.RenderContext;
+import com.shiroha.mmdskin.renderer.resource.MMDTextureManager;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -20,6 +21,7 @@ import org.joml.Vector3f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * MMD 模型抽象基类（SRP + LoD）
@@ -58,6 +60,9 @@ public abstract class AbstractMMDModel implements IMMDModel {
     // 材质 Morph
     protected ByteBuffer materialMorphResultsByteBuffer;
     protected int materialMorphResultCount = 0;
+
+    // 纹理引用键列表（用于引用计数释放）
+    protected List<String> textureKeys;
 
     // ===== NativeFunc 访问 =====
 
@@ -225,6 +230,14 @@ public abstract class AbstractMMDModel implements IMMDModel {
         if (materialMorphResultsByteBuffer != null) {
             MemoryUtil.memFree(materialMorphResultsByteBuffer);
             materialMorphResultsByteBuffer = null;
+        }
+    }
+
+    /** 释放纹理引用 */
+    protected void releaseTextures() {
+        if (textureKeys != null && !textureKeys.isEmpty()) {
+            MMDTextureManager.releaseAll(textureKeys);
+            textureKeys.clear();
         }
     }
 

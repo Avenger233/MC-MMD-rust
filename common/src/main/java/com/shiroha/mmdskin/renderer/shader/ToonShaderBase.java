@@ -22,10 +22,16 @@ public abstract class ToonShaderBase {
     protected boolean initialized = false;
     
     // ==================== 共享的片段着色器逻辑 ====================
-    
+
+    /**
+     * 主着色器片段着色器核心逻辑（不含版本声明）
+     */
     protected static final String MAIN_FRAGMENT_SHADER_BODY =
             AssetsUtil.getAssetsAsString("shader/toon_main_body.frag.glsl");
-    
+
+    /**
+     * 描边片段着色器核心逻辑（不含版本声明）
+     */
     protected static final String OUTLINE_FRAGMENT_SHADER_BODY =
             AssetsUtil.getAssetsAsString("shader/toon_outline_body.frag.glsl");
     
@@ -81,30 +87,29 @@ public abstract class ToonShaderBase {
         
         try {
             // 编译主着色器
-            mainProgram = compileProgram(getMainVertexShader(), MAIN_FRAGMENT_SHADER_BODY, 
+            mainProgram = compileProgram(getMainVertexShader(), MAIN_FRAGMENT_SHADER_BODY,
                                         getShaderName() + "主着色器");
             if (mainProgram == 0) return false;
-            
+
             // 编译描边着色器
-            outlineProgram = compileProgram(getOutlineVertexShader(), OUTLINE_FRAGMENT_SHADER_BODY, 
+            outlineProgram = compileProgram(getOutlineVertexShader(), MAIN_FRAGMENT_SHADER_BODY,
                                            getShaderName() + "描边着色器");
             if (outlineProgram == 0) {
                 GL46C.glDeleteProgram(mainProgram);
                 mainProgram = 0;
                 return false;
             }
-            
+
             // 获取公共 uniform 位置
             initCommonUniforms();
-            
+
             // 获取公共 attribute 位置
             initCommonAttributes();
-            
+
             // 子类额外初始化
             onInitialized();
-            
+
             initialized = true;
-            logger.info("{} 初始化成功", getShaderName());
             return true;
             
         } catch (Exception e) {

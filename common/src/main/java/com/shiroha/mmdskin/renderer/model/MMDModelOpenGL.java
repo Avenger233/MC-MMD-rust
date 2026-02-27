@@ -15,6 +15,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.renderer.texture.TextureManager;
@@ -84,6 +86,9 @@ public class MMDModelOpenGL extends AbstractMMDModel {
     private int cachedShaderProgram = -1;
     // 性能优化：标记是否有 UV Morph，无则跳过每帧 UV 重传
     private boolean hasUvMorph = false;
+    // 性能优化：缓存子网格数量 + 批量元数据缓冲区（消除逐子网格 JNI 调用）
+    private int subMeshCount;
+    private ByteBuffer subMeshDataBuf;
 
     MMDModelOpenGL() {
     }
@@ -111,7 +116,7 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         else
             model = nf.LoadModelPMX(modelFilename, modelDir, layerCount);
         if (model == 0) {
-            logger.info(String.format("Cannot open model: '%s'.", modelFilename));
+            logger.warn(String.format("Cannot open model: '%s'.", modelFilename));
             return null;
         }
         MMDModelOpenGL result = createFromHandle(model, modelDir);
@@ -151,12 +156,12 @@ public class MMDModelOpenGL extends AbstractMMDModel {
             uv2BufferObject = GL46C.glGenBuffers();
 
             int vertexCount = (int) nf.GetVertexCount(model);
-            ByteBuffer posBuffer = ByteBuffer.allocateDirect(vertexCount * 12); //float * 3
-            ByteBuffer colorBuffer = ByteBuffer.allocateDirect(vertexCount * 16); //float * 4
-            ByteBuffer norBuffer = ByteBuffer.allocateDirect(vertexCount * 12); //float * 3
-            ByteBuffer uv0Buffer = ByteBuffer.allocateDirect(vertexCount * 8); //float * 2
-            ByteBuffer uv1Buffer = ByteBuffer.allocateDirect(vertexCount * 8); //int * 2
-            ByteBuffer uv2Buffer = ByteBuffer.allocateDirect(vertexCount * 8); //int * 2
+            ByteBuffer posBuffer = MemoryUtil.memAlloc(vertexCount * 12); //float * 3
+            ByteBuffer colorBuffer = MemoryUtil.memAlloc(vertexCount * 16); //float * 4
+            ByteBuffer norBuffer = MemoryUtil.memAlloc(vertexCount * 12); //float * 3
+            ByteBuffer uv0Buffer = MemoryUtil.memAlloc(vertexCount * 8); //float * 2
+            ByteBuffer uv1Buffer = MemoryUtil.memAlloc(vertexCount * 8); //int * 2
+            ByteBuffer uv2Buffer = MemoryUtil.memAlloc(vertexCount * 8); //int * 2
             colorBuffer.order(ByteOrder.LITTLE_ENDIAN);
             uv1Buffer.order(ByteOrder.LITTLE_ENDIAN);
             uv2Buffer.order(ByteOrder.LITTLE_ENDIAN);
@@ -167,11 +172,12 @@ public class MMDModelOpenGL extends AbstractMMDModel {
             int indexCount = (int) nf.GetIndexCount(model);
             int indexSize = indexCount * indexElementSize;
             long indexData = nf.GetIndices(model);
-            ByteBuffer indexBuffer = ByteBuffer.allocateDirect(indexSize);
+            ByteBuffer indexBuffer = MemoryUtil.memAlloc(indexSize);
             nf.CopyDataToByteBuffer(indexBuffer, indexData, indexSize);
             indexBuffer.position(0);
             GL46C.glBindBuffer(GL46C.GL_ELEMENT_ARRAY_BUFFER, indexBufferObject);
             GL46C.glBufferData(GL46C.GL_ELEMENT_ARRAY_BUFFER, indexBuffer, GL46C.GL_STATIC_DRAW);
+            MemoryUtil.memFree(indexBuffer); // 一次性上传后立即释放
 
             int indexType = switch (indexElementSize) {
                 case 1 -> GL46C.GL_UNSIGNED_BYTE;
@@ -180,26 +186,32 @@ public class MMDModelOpenGL extends AbstractMMDModel {
                 default -> 0;
             };
 
-            //Material
+            //Material（记录纹理引用键）
+            List<String> texKeys = new ArrayList<>();
             MMDMaterial[] mats = new MMDMaterial[(int) nf.GetMaterialCount(model)];
             for (int i = 0; i < mats.length; ++i) {
                 mats[i] = new MMDMaterial();
                 String texFilename = nf.GetMaterialTex(model, i);
-                if (!texFilename.isEmpty()) {
+                if (texFilename != null && !texFilename.isEmpty()) {
                     MMDTextureManager.Texture mgrTex = MMDTextureManager.GetTexture(texFilename);
                     if (mgrTex != null) {
                         mats[i].tex = mgrTex.tex;
                         mats[i].hasAlpha = mgrTex.hasAlpha;
+                        MMDTextureManager.addRef(texFilename);
+                        texKeys.add(texFilename);
                     }
                 }
             }
 
             //lightMap
             lightMapMaterial = new MMDMaterial();
-            MMDTextureManager.Texture mgrTex = MMDTextureManager.GetTexture(modelDir + "/lightMap.png");
+            String lightMapPath = modelDir + "/lightMap.png";
+            MMDTextureManager.Texture mgrTex = MMDTextureManager.GetTexture(lightMapPath);
             if (mgrTex != null) {
                 lightMapMaterial.tex = mgrTex.tex;
                 lightMapMaterial.hasAlpha = mgrTex.hasAlpha;
+                MMDTextureManager.addRef(lightMapPath);
+                texKeys.add(lightMapPath);
             }else{
                 lightMapMaterial.tex = GL46C.glGenTextures();
                 lightMapMaterial.ownsTexture = true;
@@ -282,7 +294,8 @@ public class MMDModelOpenGL extends AbstractMMDModel {
             result.mats = mats;
             result.lightMapMaterial = lightMapMaterial;
             result.hasUvMorph = nf.GetUvMorphCount(model) > 0;
-            
+            result.textureKeys = texKeys;
+
             // 预分配矩阵缓冲区（避免每帧分配）
             modelViewMatBuff = MemoryUtil.memAllocFloat(16);
             projMatBuff = MemoryUtil.memAllocFloat(16);
@@ -302,7 +315,12 @@ public class MMDModelOpenGL extends AbstractMMDModel {
                 matMorphResultsByteBuf.order(ByteOrder.LITTLE_ENDIAN);
                 result.materialMorphResultsByteBuffer = matMorphResultsByteBuf;
             }
-            
+
+            // 初始化子网格批量元数据缓冲区（消除逐子网格 JNI 调用）
+            result.subMeshCount = (int) nf.GetSubMeshCount(model);
+            result.subMeshDataBuf = MemoryUtil.memAlloc(result.subMeshCount * 20);
+            result.subMeshDataBuf.order(ByteOrder.LITTLE_ENDIAN);
+
             // 启用自动眨眼
             nf.SetAutoBlinkEnabled(model, true);
             
@@ -338,13 +356,23 @@ public class MMDModelOpenGL extends AbstractMMDModel {
 
     @Override
     public void dispose() {
+        releaseTextures();
         disposeModelHandle();
-        
+
+        // 释放 MemoryUtil 分配的逐帧 ByteBuffer
+        if (posBuffer != null) { MemoryUtil.memFree(posBuffer); posBuffer = null; }
+        if (colorBuffer != null) { MemoryUtil.memFree(colorBuffer); colorBuffer = null; }
+        if (norBuffer != null) { MemoryUtil.memFree(norBuffer); norBuffer = null; }
+        if (uv0Buffer != null) { MemoryUtil.memFree(uv0Buffer); uv0Buffer = null; }
+        if (uv1Buffer != null) { MemoryUtil.memFree(uv1Buffer); uv1Buffer = null; }
+        if (uv2Buffer != null) { MemoryUtil.memFree(uv2Buffer); uv2Buffer = null; }
+
         // 释放预分配的矩阵缓冲区
         if (modelViewMatBuff != null) { MemoryUtil.memFree(modelViewMatBuff); modelViewMatBuff = null; }
         if (projMatBuff != null) { MemoryUtil.memFree(projMatBuff); projMatBuff = null; }
         if (light0Buff != null) { MemoryUtil.memFree(light0Buff); light0Buff = null; }
         if (light1Buff != null) { MemoryUtil.memFree(light1Buff); light1Buff = null; }
+        if (subMeshDataBuf != null) { MemoryUtil.memFree(subMeshDataBuf); subMeshDataBuf = null; }
         disposeMaterialMorphBuffers();
         
         // 释放自建的 lightMap 纹理（来自 MMDTextureManager 的不在此删除）
@@ -362,6 +390,36 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         GL46C.glDeleteBuffers(texcoordBufferObject);
         GL46C.glDeleteBuffers(uv1BufferObject);
         GL46C.glDeleteBuffers(uv2BufferObject);
+    }
+
+    @Override
+    public long getVramUsage() {
+        long total = 0;
+        // IBO
+        int indexCount = (int) getNf().GetIndexCount(model);
+        total += (long) indexCount * indexElementSize;
+        // pos + normal VBO (dynamic)
+        total += (long) vertexCount * 12 * 2;
+        // color VBO (static)
+        total += (long) vertexCount * 16;
+        // uv0 + uv1 + uv2 VBO
+        total += (long) vertexCount * 8 * 3;
+        return total;
+    }
+
+    @Override
+    public long getRamUsage() {
+        if (model == 0) return 0;
+        long rustRam = getNf().GetModelMemoryUsage(model);
+        // Java 侧堆外内存：6 个逐顶点 ByteBuffer
+        long javaRam = (long) vertexCount * 64; // pos(12)+color(16)+nor(12)+uv0(8)+uv1(8)+uv2(8)
+        // MemoryUtil 预分配缓冲区
+        javaRam += 152; // modelViewMat(64)+projMat(64)+light0(12)+light1(12)
+        // 材质 Morph 缓冲区
+        if (materialMorphResultCount > 0) {
+            javaRam += (long) materialMorphResultCount * 56 * 4 * 2;
+        }
+        return rustRam + javaRam;
     }
 
     @Override
@@ -392,7 +450,11 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         
         // 获取材质 Morph 结果
         fetchMaterialMorphResults();
-        
+
+        // 批量获取所有子网格元数据（1 次 JNI 替代逐子网格调用）
+        subMeshDataBuf.clear();
+        nf.BatchGetSubMeshData(model, subMeshDataBuf);
+
         // 检查是否启用 Toon 渲染
         boolean useToon = ConfigManager.isToonRenderingEnabled();
         if (useToon) {
@@ -423,7 +485,6 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         if(MmdSkinClient.usingMMDShader == 0){
             ShaderInstance mcShader = RenderSystem.getShader();
             if (mcShader == null) {
-                logger.debug("RenderSystem.getShader() 返回 null，跳过本帧渲染");
                 RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
                 return;
             }
@@ -533,10 +594,9 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         GL46C.glBindBuffer(GL46C.GL_ELEMENT_ARRAY_BUFFER, indexBufferObject);
 
         // 使用预分配的矩阵缓冲区（避免每帧分配）
-        // MC 1.21.1: 需要乘以 RenderSystem.getModelViewMatrix()
         modelViewMatBuff.clear();
         projMatBuff.clear();
-        RenderSystem.getModelViewMatrix().mul(deliverStack.last().pose(), new org.joml.Matrix4f()).get(modelViewMatBuff);
+        deliverStack.last().pose().get(modelViewMatBuff);
         RenderSystem.getProjectionMatrix().get(projMatBuff);
 
         //upload Uniforms(MMDShader)
@@ -630,21 +690,21 @@ public class MMDModelOpenGL extends AbstractMMDModel {
             GL46C.glVertexAttribPointer(I_uv0Location, 2, GL46C.GL_FLOAT, false, 0, 0);
         }
 
-        //Draw
+        //Draw（从预填充的 subMeshDataBuf 读取元数据，0 次逐子网格 JNI 调用）
         RenderSystem.activeTexture(GL46C.GL_TEXTURE0);
-        long subMeshCount = nf.GetSubMeshCount(model);
-        for (long i = 0; i < subMeshCount; ++i) {
-            int materialID = nf.GetSubMeshMaterialID(model, i);
-            
-            // 检查材质可见性（用于脱外套等功能）
-            if (!nf.IsMaterialVisible(model, materialID))
-                continue;
-            
-            float alpha = nf.GetMaterialAlpha(model, materialID);
-            if (getEffectiveMaterialAlpha(materialID, alpha) < 0.001f)
-                continue;
+        for (int i = 0; i < subMeshCount; ++i) {
+            int base = i * 20;
+            int materialID  = subMeshDataBuf.getInt(base);
+            int beginIndex  = subMeshDataBuf.getInt(base + 4);
+            int vertCount   = subMeshDataBuf.getInt(base + 8);
+            float alpha     = subMeshDataBuf.getFloat(base + 12);
+            boolean visible = subMeshDataBuf.get(base + 16) != 0;
+            boolean bothFace= subMeshDataBuf.get(base + 17) != 0;
 
-            if (nf.GetMaterialBothFace(model, materialID)) {
+            if (!visible) continue;
+            if (getEffectiveMaterialAlpha(materialID, alpha) < 0.001f) continue;
+
+            if (bothFace) {
                 RenderSystem.disableCull();
             } else {
                 RenderSystem.enableCull();
@@ -656,10 +716,9 @@ public class MMDModelOpenGL extends AbstractMMDModel {
                 texId = mats[materialID].tex;
             RenderSystem.setShaderTexture(0, texId);
             GL46C.glBindTexture(GL46C.GL_TEXTURE_2D, texId);
-            long startPos = (long) nf.GetSubMeshBeginIndex(model, i) * indexElementSize;
-            int count = nf.GetSubMeshVertexCount(model, i);
+            long startPos = (long) beginIndex * indexElementSize;
 
-            GL46C.glDrawElements(GL46C.GL_TRIANGLES, count, indexType, startPos);
+            GL46C.glDrawElements(GL46C.GL_TRIANGLES, vertCount, indexType, startPos);
         }
 
         if(KAIMyLocationV != -1)
@@ -751,10 +810,9 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         }
         
         // 设置矩阵
-        // MC 1.21.1: 需要乘以 RenderSystem.getModelViewMatrix()
         modelViewMatBuff.clear();
         projMatBuff.clear();
-        RenderSystem.getModelViewMatrix().mul(deliverStack.last().pose(), new org.joml.Matrix4f()).get(modelViewMatBuff);
+        deliverStack.last().pose().get(modelViewMatBuff);
         RenderSystem.getProjectionMatrix().get(projMatBuff);
         
         GL46C.glBindBuffer(GL46C.GL_ELEMENT_ARRAY_BUFFER, indexBufferObject);
@@ -790,17 +848,20 @@ public class MMDModelOpenGL extends AbstractMMDModel {
             // 正面剔除，只绘制背面（扩张后的背面形成描边）
             GL46C.glCullFace(GL46C.GL_FRONT);
             RenderSystem.enableCull();
-            
-            // 绘制所有子网格
-            long subMeshCount = nf.GetSubMeshCount(model);
-            for (long i = 0; i < subMeshCount; ++i) {
-                int materialID = nf.GetSubMeshMaterialID(model, i);
-                if (!nf.IsMaterialVisible(model, materialID)) continue;
-                float edgeAlpha = nf.GetMaterialAlpha(model, materialID);
+
+            // 绘制描边（从 subMeshDataBuf 读取元数据）
+            for (int i = 0; i < subMeshCount; ++i) {
+                int base = i * 20;
+                int materialID = subMeshDataBuf.getInt(base);
+                int beginIndex = subMeshDataBuf.getInt(base + 4);
+                int count      = subMeshDataBuf.getInt(base + 8);
+                float edgeAlpha= subMeshDataBuf.getFloat(base + 12);
+                boolean visible= subMeshDataBuf.get(base + 16) != 0;
+
+                if (!visible) continue;
                 if (getEffectiveMaterialAlpha(materialID, edgeAlpha) < 0.001f) continue;
-                
-                long startPos = (long) nf.GetSubMeshBeginIndex(model, i) * indexElementSize;
-                int count = nf.GetSubMeshVertexCount(model, i);
+
+                long startPos = (long) beginIndex * indexElementSize;
                 GL46C.glDrawElements(GL46C.GL_TRIANGLES, count, indexType, startPos);
             }
             
@@ -849,22 +910,26 @@ public class MMDModelOpenGL extends AbstractMMDModel {
         );
         toonShaderCpu.setSpecular(toonConfig.getSpecularPower(), toonConfig.getSpecularIntensity());
         
-        // 绘制所有子网格
+        // 绘制所有子网格（从 subMeshDataBuf 读取元数据）
         RenderSystem.activeTexture(GL46C.GL_TEXTURE0);
-        long subMeshCount = nf.GetSubMeshCount(model);
-        for (long i = 0; i < subMeshCount; ++i) {
-            int materialID = nf.GetSubMeshMaterialID(model, i);
-            if (!nf.IsMaterialVisible(model, materialID)) continue;
-            
-            float alpha = nf.GetMaterialAlpha(model, materialID);
+        for (int i = 0; i < subMeshCount; ++i) {
+            int base = i * 20;
+            int materialID  = subMeshDataBuf.getInt(base);
+            int beginIndex  = subMeshDataBuf.getInt(base + 4);
+            int vertCount   = subMeshDataBuf.getInt(base + 8);
+            float alpha     = subMeshDataBuf.getFloat(base + 12);
+            boolean visible = subMeshDataBuf.get(base + 16) != 0;
+            boolean bothFace= subMeshDataBuf.get(base + 17) != 0;
+
+            if (!visible) continue;
             if (getEffectiveMaterialAlpha(materialID, alpha) < 0.001f) continue;
-            
-            if (nf.GetMaterialBothFace(model, materialID)) {
+
+            if (bothFace) {
                 RenderSystem.disableCull();
             } else {
                 RenderSystem.enableCull();
             }
-            
+
             int texId;
             if (mats[materialID].tex == 0) {
                 texId = MCinstance.getTextureManager().getTexture(TextureManager.INTENTIONAL_MISSING_TEXTURE).getId();
@@ -873,11 +938,9 @@ public class MMDModelOpenGL extends AbstractMMDModel {
             }
             RenderSystem.setShaderTexture(0, texId);
             GL46C.glBindTexture(GL46C.GL_TEXTURE_2D, texId);
-            
-            long startPos = (long) nf.GetSubMeshBeginIndex(model, i) * indexElementSize;
-            int count = nf.GetSubMeshVertexCount(model, i);
-            
-            GL46C.glDrawElements(GL46C.GL_TRIANGLES, count, indexType, startPos);
+
+            long startPos = (long) beginIndex * indexElementSize;
+            GL46C.glDrawElements(GL46C.GL_TRIANGLES, vertCount, indexType, startPos);
         }
         
         // 清理顶点属性

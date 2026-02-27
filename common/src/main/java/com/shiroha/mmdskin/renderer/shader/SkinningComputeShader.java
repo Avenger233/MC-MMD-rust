@@ -63,8 +63,7 @@ public class SkinningComputeShader {
     private static final int BINDING_UV_MORPH_OFFSETS = 10;
     private static final int BINDING_UV_MORPH_WEIGHTS = 11;
     private static final int BINDING_SKINNED_UVS = 12;
-    
-    
+
     private static final String COMPUTE_SHADER_SOURCE =
             AssetsUtil.getAssetsAsString("shader/compute_skinning.comp.glsl");
     
@@ -122,7 +121,6 @@ public class SkinningComputeShader {
             uvMorphCountLocation = GL43C.glGetUniformLocation(program, "UvMorphCount");
             
             initialized = true;
-            logger.info("蒙皮 Compute Shader 初始化成功");
             return true;
             
         } catch (Exception e) {
