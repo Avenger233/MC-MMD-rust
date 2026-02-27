@@ -110,7 +110,6 @@ public class ActionWheelConfigScreen extends Screen {
         loadData();
         this.clearWidgets();
         this.init();
-        logger.info("动画列表已刷新");
     }
     
     private void selectAll() {
@@ -139,7 +138,6 @@ public class ActionWheelConfigScreen extends Screen {
         ActionWheelConfig config = ActionWheelConfig.getInstance();
         config.setDisplayedActions(new ArrayList<>(selectedActions));
         config.save();
-        logger.info("已保存 {} 个动画到轮盘", selectedActions.size());
         this.onClose();
     }
 

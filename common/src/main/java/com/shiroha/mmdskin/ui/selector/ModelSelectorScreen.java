@@ -83,8 +83,6 @@ public class ModelSelectorScreen extends Screen {
         for (ModelInfo info : models) {
             modelCards.add(new ModelCardEntry(info.getFolderName(), info));
         }
-        
-        logger.info("共加载 {} 个模型选项", modelCards.size());
     }
 
     @Override
@@ -124,7 +122,6 @@ public class ModelSelectorScreen extends Screen {
         scrollOffset = 0;
         this.clearWidgets();
         this.init();
-        logger.info("模型列表已刷新");
     }
 
     /**
@@ -143,8 +140,6 @@ public class ModelSelectorScreen extends Screen {
             String playerName = mc.player.getName().getString();
             com.shiroha.mmdskin.renderer.model.MMDModelManager.forceReloadPlayerModels(playerName);
         }
-        
-        logger.info("玩家选择模型: {}", card.displayName);
     }
 
     @Override

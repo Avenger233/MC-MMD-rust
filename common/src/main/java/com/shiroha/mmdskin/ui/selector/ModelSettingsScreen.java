@@ -116,7 +116,6 @@ public class ModelSettingsScreen extends Screen {
     private void saveAndClose() {
         ModelConfigManager.saveConfig(modelName, config);
         applyConfigToModel();
-        logger.info("模型 {} 配置已保存", modelName);
         this.onClose();
     }
     
@@ -125,7 +124,6 @@ public class ModelSettingsScreen extends Screen {
      */
     private void resetDefaults() {
         config = new ModelConfigData();
-        logger.info("模型 {} 配置已重置", modelName);
     }
     
     /**

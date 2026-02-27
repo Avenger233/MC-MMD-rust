@@ -130,7 +130,6 @@ public class MaterialVisibilityScreen extends Screen {
         }
         
         updateCounts();
-        logger.info("加载了 {} 个材质", materials.size());
     }
     
     /**

@@ -184,7 +184,6 @@ public class ModelAnimationScreen extends Screen {
             }
         }
         
-        logger.info("模型 {} 动画映射已保存 ({} 条)", modelName, editMapping.size());
         this.onClose();
     }
     
