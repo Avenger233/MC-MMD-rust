@@ -97,6 +97,7 @@ pub fn load_vrm<P: AsRef<Path>>(path: P) -> Result<MmdModel> {
 
     let mut model = MmdModel::new();
     model.name = name;
+    model.set_vrm(true);
     model.vertices = mesh.vertices;
     model.indices = mesh.indices;
     model.weights = mesh.weights;

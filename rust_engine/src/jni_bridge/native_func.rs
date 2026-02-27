@@ -2993,3 +2993,19 @@ pub extern "system" fn Java_com_shiroha_mmdskin_NativeFunc_LoadModelVRM(
         }
     }
 }
+
+/// 查询模型是否为 VRM 格式
+#[no_mangle]
+pub extern "system" fn Java_com_shiroha_mmdskin_NativeFunc_IsVrmModel(
+    _env: JNIEnv,
+    _class: JClass,
+    model: jlong,
+) -> jboolean {
+    let models = MODELS.read().unwrap();
+    if let Some(m) = models.get(&model) {
+        let m = m.lock().unwrap();
+        if m.is_vrm() { 1 } else { 0 }
+    } else {
+        0
+    }
+}
