@@ -345,8 +345,6 @@ public class MMDModelManager {
      */
     private static void cancelAllPendingLoads() {
         if (!pendingLoads.isEmpty()) {
-            int count = pendingLoads.size();
-            // 清理已完成但未消费的 Future 中的句柄
             for (var entry : pendingLoads.entrySet()) {
                 cleanupFutureHandle(entry.getValue());
             }
