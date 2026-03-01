@@ -164,10 +164,27 @@ public class MMDAnimManager {
     /**
      * 从指定目录尝试加载同名动画
      */
+    private static final String[] ANIM_EXTENSIONS = {".vmd", ".fbx"};
+
     private static long tryLoadFromDir(IMMDModel model, String dir, String animName) {
-        String filePath = GetAnimationFilename(dir, animName);
-        if (new File(filePath).exists()) {
-            return nf.LoadAnimation(model.getModelHandle(), filePath);
+        for (String ext : ANIM_EXTENSIONS) {
+            File file = new File(dir, animName + ext);
+            if (file.exists()) {
+                return nf.LoadAnimation(model.getModelHandle(), file.getAbsolutePath());
+            }
+        }
+        File dirFile = new File(dir);
+        if (dirFile.isDirectory()) {
+            File[] fbxFiles = dirFile.listFiles((d, name) -> name.toLowerCase().endsWith(".fbx"));
+            if (fbxFiles != null) {
+                for (File fbx : fbxFiles) {
+                    long handle = nf.LoadAnimation(
+                        model.getModelHandle(),
+                        fbx.getAbsolutePath() + "#" + animName
+                    );
+                    if (handle != 0) return handle;
+                }
+            }
         }
         return 0;
     }
