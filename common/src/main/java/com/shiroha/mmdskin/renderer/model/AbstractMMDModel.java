@@ -43,6 +43,8 @@ public abstract class AbstractMMDModel implements IMMDModel {
     protected long model;
     protected String modelDir;
     private String cachedModelName;
+    private boolean isVrmModel;
+    private boolean isVrmChecked;
 
     // 时间追踪
     protected long lastUpdateTime = -1;
@@ -120,6 +122,18 @@ public abstract class AbstractMMDModel implements IMMDModel {
             cachedModelName = IMMDModel.super.getModelName();
         }
         return cachedModelName;
+    }
+
+    protected boolean checkVrm() {
+        if (!isVrmChecked && model != 0) {
+            isVrmChecked = true;
+            try {
+                isVrmModel = getNf().IsVrmModel(model);
+            } catch (Exception e) {
+                isVrmModel = false;
+            }
+        }
+        return isVrmModel;
     }
 
     // ===== 公共逻辑（模板方法） =====
