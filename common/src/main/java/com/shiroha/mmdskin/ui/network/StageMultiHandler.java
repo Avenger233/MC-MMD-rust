@@ -58,10 +58,14 @@ public final class StageMultiHandler {
             case "DECLINE":
                 mgr.onMemberDeclined(senderUUID);
                 break;
+            case "READY":
+                mgr.onMemberReady(senderUUID);
+                break;
             case "WATCH_START":
                 if (parts.length >= 3) handleWatchStart(senderUUID, parts[2]);
                 break;
             case "WATCH_END":
+                // exitStageMode 内部会根据 watchingStage 判断身份并清理
                 MMDCameraController.getInstance().exitStageMode();
                 mgr.onWatchStageEnd(senderUUID);
                 break;
@@ -91,13 +95,25 @@ public final class StageMultiHandler {
         StageInviteManager mgr = StageInviteManager.getInstance();
 
         float startFrame = 0.0f;
+        float hostHeightOffset = 0.0f;
         String cleanStageData = stageData;
-        int frameIdx = stageData.lastIndexOf("|FRAME:");
+        
+        // 解析 FRAME 参数
+        int frameIdx = cleanStageData.lastIndexOf("|FRAME:");
         if (frameIdx >= 0) {
             try {
-                startFrame = Float.parseFloat(stageData.substring(frameIdx + 7));
+                startFrame = Float.parseFloat(cleanStageData.substring(frameIdx + 7));
             } catch (NumberFormatException ignored) {}
-            cleanStageData = stageData.substring(0, frameIdx);
+            cleanStageData = cleanStageData.substring(0, frameIdx);
+        }
+        
+        // 解析房主相机高度偏移
+        int heightIdx = cleanStageData.lastIndexOf("|HEIGHT:");
+        if (heightIdx >= 0) {
+            try {
+                hostHeightOffset = Float.parseFloat(cleanStageData.substring(heightIdx + 8));
+            } catch (NumberFormatException ignored) {}
+            cleanStageData = cleanStageData.substring(0, heightIdx);
         }
 
         MMDCameraController controller = MMDCameraController.getInstance();
@@ -114,7 +130,10 @@ public final class StageMultiHandler {
         mgr.onWatchStageStart(hostUUID, cleanStageData);
         controller.setWaitingForHost(false);
 
-        loadAndStartAsGuest(cleanStageData, controller, mc);
+        float effectiveHeight = mgr.isUseHostCamera() ? hostHeightOffset 
+            : com.shiroha.mmdskin.config.StageConfig.getInstance().cameraHeightOffset;
+        
+        loadAndStartAsGuest(cleanStageData, controller, mc, effectiveHeight, mgr.isUseHostCamera());
 
         if (mc.player != null) {
             StageAnimSyncHelper.startStageAnim(mc.player, cleanStageData);
@@ -128,7 +147,8 @@ public final class StageMultiHandler {
         }
     }
 
-    private static void loadAndStartAsGuest(String stageData, MMDCameraController controller, Minecraft mc) {
+    private static void loadAndStartAsGuest(String stageData, MMDCameraController controller, 
+                                              Minecraft mc, float heightOffset, boolean useHostCamera) {
         String[] parts = stageData.split("\\|");
         if (parts.length < 2) return;
 
@@ -210,7 +230,7 @@ public final class StageMultiHandler {
                 mergedAnim != 0 ? mergedAnim : cameraAnim,
                 cameraAnim,
                 com.shiroha.mmdskin.config.StageConfig.getInstance().cinematicMode,
-                modelHandle, modelName, audioPath, 0.0f);
+                modelHandle, modelName, audioPath, heightOffset);
 
         if (!started) {
             if (mergedAnim != 0) nf.DeleteAnimation(mergedAnim);

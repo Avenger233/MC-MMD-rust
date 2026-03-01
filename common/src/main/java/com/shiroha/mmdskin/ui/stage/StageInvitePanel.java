@@ -97,6 +97,7 @@ public class StageInvitePanel {
         switch (state) {
             case PENDING:  tag = "...";  color = STATE_PENDING;  break;
             case ACCEPTED: tag = "\u2713"; color = STATE_ACCEPTED; break;
+            case READY:    tag = "\u2605"; color = STATE_ACCEPTED; break;
             case DECLINED: tag = "\u2717"; color = STATE_DECLINED; break;
             default: tag = "\u25B6"; color = ACCENT; break;
         }

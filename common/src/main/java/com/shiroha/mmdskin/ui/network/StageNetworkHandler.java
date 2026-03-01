@@ -56,6 +56,10 @@ public class StageNetworkHandler {
         sendMulti("SYNC_FRAME|" + currentFrame);
     }
 
+    public static void sendReady(UUID hostUUID, boolean useHostCamera) {
+        sendMulti("READY|" + hostUUID + "|" + (useHostCamera ? "1" : "0"));
+    }
+
     private static void sendMulti(String data) {
         if (stageMultiSender == null) {
             logger.warn("[多人舞台] stageMultiSender 未注册");

@@ -116,6 +116,10 @@
   "gui.mmdskin.stage.assign_motion": "Assign Motion",
   "gui.mmdskin.stage.assign_confirm": "Confirm",
   "gui.mmdskin.stage.assign_clear": "Clear",
+  "gui.mmdskin.stage.use_host_camera": "Use Host Camera",
+  "gui.mmdskin.stage.ready": "Ready",
+  "gui.mmdskin.stage.ready_done": "\u2713 Ready, waiting for host",
+  "gui.mmdskin.stage.waiting_ready": "Waiting for members...",
   "gui.mmdskin.follow.join_hint": "Join %s's dance",
   "gui.mmdskin.follow.exit_hint": "Press ESC to stop following",
 

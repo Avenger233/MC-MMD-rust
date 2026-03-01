@@ -17,6 +17,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 舞台模式选择界面 — 左侧面板风格
@@ -32,6 +33,7 @@ public class StageSelectScreen extends Screen {
     private static final int PANEL_MARGIN = 4;
     private static final int HEADER_HEIGHT = 28;
     private static final int FOOTER_HEIGHT = 56;
+    private static final int GUEST_FOOTER_HEIGHT = 76;
     private static final int ITEM_HEIGHT = 14;
     private static final int ITEM_SPACING = 1;
     private static final int DETAIL_HEADER = 14;
@@ -75,6 +77,9 @@ public class StageSelectScreen extends Screen {
     private boolean hoverCancel = false;
     private boolean hoverToggle = false;
     private boolean draggingHeightSlider = false;
+    private boolean hoverGuestCameraToggle = false;
+    private boolean hoverReady = false;
+    private boolean guestReady = false;
     
     // 面板区域缓存
     private int panelX, panelY, panelH;
@@ -134,14 +139,15 @@ public class StageSelectScreen extends Screen {
         panelY = PANEL_MARGIN;
         panelH = this.height - PANEL_MARGIN * 2;
         
-        // 包列表区域
+        boolean isGuest = MMDCameraController.getInstance().isWaitingForHost();
+        int footerH = isGuest ? GUEST_FOOTER_HEIGHT : FOOTER_HEIGHT;
+        
         packListTop = panelY + HEADER_HEIGHT;
-        splitY = panelY + (int)((panelH - HEADER_HEIGHT - FOOTER_HEIGHT) * 0.55f) + HEADER_HEIGHT;
+        splitY = panelY + (int)((panelH - HEADER_HEIGHT - footerH) * 0.55f) + HEADER_HEIGHT;
         packListBottom = splitY - 2;
         
-        // 详情区域
         detailTop = splitY + DETAIL_HEADER;
-        detailBottom = panelY + panelH - FOOTER_HEIGHT;
+        detailBottom = panelY + panelH - footerH;
         
         // 计算包列表滚动
         updatePackScroll();
@@ -372,12 +378,20 @@ public class StageSelectScreen extends Screen {
     }
     
     private void renderFooter(GuiGraphics g, int mouseX, int mouseY) {
-        int footerY = panelY + panelH - FOOTER_HEIGHT;
+        boolean isGuest = MMDCameraController.getInstance().isWaitingForHost();
+        int footerH = isGuest ? GUEST_FOOTER_HEIGHT : FOOTER_HEIGHT;
+        int footerY = panelY + panelH - footerH;
         
-        // 分隔线
         g.fill(panelX + 8, footerY, panelX + PANEL_WIDTH - 8, footerY + 1, COLOR_SEPARATOR);
         
-        // 影院模式开关（第一行）
+        if (isGuest) {
+            renderGuestFooter(g, mouseX, mouseY, footerY);
+        } else {
+            renderHostFooter(g, mouseX, mouseY, footerY);
+        }
+    }
+    
+    private void renderHostFooter(GuiGraphics g, int mouseX, int mouseY, int footerY) {
         int toggleX = panelX + 8;
         int toggleY = footerY + 4;
         int toggleW = 20;
@@ -393,34 +407,28 @@ public class StageSelectScreen extends Screen {
         g.drawString(this.font, Component.translatable("gui.mmdskin.stage.cinematic"), 
                      toggleX + toggleW + 4, toggleY + 1, COLOR_TEXT, false);
         
-        // 镜头高度滑块（第二行）
         int sliderY = footerY + 18;
         int sliderX = panelX + 8;
         int sliderW = PANEL_WIDTH - 16;
         
-        // 滑块标签 + 数值
         String heightLabel = String.format("H: %+.2f", cameraHeightOffset);
         g.drawString(this.font, heightLabel, sliderX, sliderY, COLOR_TEXT_DIM, false);
         
-        // 滑块轨道
         int trackX = sliderX + 36;
         int trackW = sliderW - 36;
         int trackY = sliderY + 3;
         int trackH = 4;
         g.fill(trackX, trackY, trackX + trackW, trackY + trackH, 0xFF303030);
         
-        // 滑块位置（范围 -2.0 ~ +2.0）
         float normalizedValue = (cameraHeightOffset + 2.0f) / 4.0f;
         normalizedValue = Math.max(0, Math.min(1, normalizedValue));
         int thumbX = trackX + (int)(normalizedValue * (trackW - 6));
         g.fill(thumbX, trackY - 1, thumbX + 6, trackY + trackH + 1, COLOR_ACCENT);
         
-        // 按钮行（第三行）
         int btnY = footerY + 34;
         int btnW = (PANEL_WIDTH - 20) / 2;
         int btnH = 16;
         
-        // 取消按钮
         int cancelX = panelX + PANEL_WIDTH - 6 - btnW;
         hoverCancel = mouseX >= cancelX && mouseX < cancelX + btnW 
                     && mouseY >= btnY && mouseY < btnY + btnH;
@@ -429,39 +437,137 @@ public class StageSelectScreen extends Screen {
         g.drawCenteredString(this.font, Component.translatable("gui.cancel"), 
                            cancelX + btnW / 2, btnY + 4, COLOR_TEXT);
         
-        // 开始按钮
         int startX = panelX + 6;
         boolean canStart = canStartStage();
         hoverStart = canStart && mouseX >= startX && mouseX < startX + btnW 
                    && mouseY >= btnY && mouseY < btnY + btnH;
         int startColor = canStart ? (hoverStart ? 0xFF50C070 : COLOR_BTN_START) : 0xFF333333;
         g.fill(startX, btnY, startX + btnW, btnY + btnH, startColor);
-        g.drawCenteredString(this.font, "\u25B6 " + Component.translatable("gui.mmdskin.stage.start").getString(), 
-                           startX + btnW / 2, btnY + 4, 
-                           canStart ? 0xFFFFFFFF : COLOR_TEXT_DIM);
+        
+        StageInviteManager mgr = StageInviteManager.getInstance();
+        boolean hasAccepted = !mgr.getAcceptedMembers().isEmpty();
+        boolean allReady = mgr.allMembersReady();
+        
+        if (hasAccepted && !allReady) {
+            g.drawCenteredString(this.font, 
+                Component.translatable("gui.mmdskin.stage.waiting_ready"),
+                startX + btnW / 2, btnY + 4,
+                COLOR_TEXT_DIM);
+        } else {
+            g.drawCenteredString(this.font, 
+                "\u25B6 " + Component.translatable("gui.mmdskin.stage.start").getString(),
+                startX + btnW / 2, btnY + 4,
+                canStart ? 0xFFFFFFFF : COLOR_TEXT_DIM);
+        }
     }
     
-    /**
-     * 判断是否可以开始：选中的包中至少有 1 个非相机 VMD
-     */
+    private void renderGuestFooter(GuiGraphics g, int mouseX, int mouseY, int footerY) {
+        StageInviteManager mgr = StageInviteManager.getInstance();
+        boolean useHostCamera = mgr.isUseHostCamera();
+        
+        int toggleX = panelX + 8;
+        int toggleY = footerY + 4;
+        int toggleW = 20;
+        int toggleH = 10;
+        
+        hoverGuestCameraToggle = mouseX >= toggleX && mouseX < toggleX + PANEL_WIDTH - 16
+                               && mouseY >= toggleY && mouseY < toggleY + toggleH;
+        
+        int toggleColor = useHostCamera ? COLOR_TOGGLE_ON : COLOR_TOGGLE_OFF;
+        g.fill(toggleX, toggleY, toggleX + toggleW, toggleY + toggleH, toggleColor);
+        int dotX = useHostCamera ? toggleX + toggleW - toggleH : toggleX;
+        g.fill(dotX + 1, toggleY + 1, dotX + toggleH - 1, toggleY + toggleH - 1, 0xFFFFFFFF);
+        g.drawString(this.font, Component.translatable("gui.mmdskin.stage.use_host_camera"),
+                     toggleX + toggleW + 4, toggleY + 1, COLOR_TEXT, false);
+        
+        int toggle2Y = footerY + 18;
+        hoverToggle = mouseX >= toggleX && mouseX < toggleX + PANEL_WIDTH - 16
+                    && mouseY >= toggle2Y && mouseY < toggle2Y + toggleH;
+        
+        int toggle2Color = cinematicMode ? COLOR_TOGGLE_ON : COLOR_TOGGLE_OFF;
+        g.fill(toggleX, toggle2Y, toggleX + toggleW, toggle2Y + toggleH, toggle2Color);
+        int dot2X = cinematicMode ? toggleX + toggleW - toggleH : toggleX;
+        g.fill(dot2X + 1, toggle2Y + 1, dot2X + toggleH - 1, toggle2Y + toggleH - 1, 0xFFFFFFFF);
+        g.drawString(this.font, Component.translatable("gui.mmdskin.stage.cinematic"),
+                     toggleX + toggleW + 4, toggle2Y + 1, COLOR_TEXT, false);
+        
+        int btnY = footerY + 34;
+        int btnW = (PANEL_WIDTH - 20) / 2;
+        int btnH = 16;
+        
+        int cancelX = panelX + PANEL_WIDTH - 6 - btnW;
+        hoverCancel = mouseX >= cancelX && mouseX < cancelX + btnW
+                    && mouseY >= btnY && mouseY < btnY + btnH;
+        int cancelColor = hoverCancel ? 0xFF888888 : 0xFF555555;
+        g.fill(cancelX, btnY, cancelX + btnW, btnY + btnH, cancelColor);
+        g.drawCenteredString(this.font, Component.translatable("gui.cancel"),
+                           cancelX + btnW / 2, btnY + 4, COLOR_TEXT);
+        
+        int readyX = panelX + 6;
+        if (guestReady) {
+            g.drawCenteredString(this.font,
+                Component.translatable("gui.mmdskin.stage.waiting_host"),
+                readyX + btnW / 2, btnY + 4, COLOR_TEXT_DIM);
+            
+            g.drawCenteredString(this.font,
+                Component.translatable("gui.mmdskin.stage.ready_done"),
+                panelX + PANEL_WIDTH / 2, btnY + 22, COLOR_TOGGLE_ON);
+        } else {
+            hoverReady = mouseX >= readyX && mouseX < readyX + btnW
+                       && mouseY >= btnY && mouseY < btnY + btnH;
+            int readyColor = hoverReady ? 0xFF50C070 : COLOR_BTN_START;
+            g.fill(readyX, btnY, readyX + btnW, btnY + btnH, readyColor);
+            g.drawCenteredString(this.font,
+                Component.translatable("gui.mmdskin.stage.ready"),
+                readyX + btnW / 2, btnY + 4, 0xFFFFFFFF);
+        }
+    }
+    
     private boolean canStartStage() {
         StagePack selected = getSelectedPack();
-        return selected != null && selected.hasMotionVmd();
+        if (selected == null || !selected.hasMotionVmd()) return false;
+        StageInviteManager mgr = StageInviteManager.getInstance();
+        if (!mgr.getAcceptedMembers().isEmpty() && !mgr.allMembersReady()) return false;
+        return true;
     }
     
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            // 镜头高度滑块
-            int footerY = panelY + panelH - FOOTER_HEIGHT;
-            int sliderY = footerY + 18;
-            int trackX = panelX + 8 + 36;
-            int trackW = PANEL_WIDTH - 16 - 36;
-            if (mouseX >= trackX && mouseX < trackX + trackW && mouseY >= sliderY && mouseY < sliderY + 10) {
-                draggingHeightSlider = true;
-                updateHeightSliderFromMouse(mouseX, trackX, trackW);
+            if (assignPanel != null && assignPanel.isInside(mouseX, mouseY)) {
+                if (assignPanel.mouseClicked(mouseX, mouseY, button)) return true;
+            }
+            
+            boolean isGuest = MMDCameraController.getInstance().isWaitingForHost();
+            
+            if (!isGuest) {
+                int footerY = panelY + panelH - FOOTER_HEIGHT;
+                int sliderY = footerY + 18;
+                int trackX = panelX + 8 + 36;
+                int trackW = PANEL_WIDTH - 16 - 36;
+                if (mouseX >= trackX && mouseX < trackX + trackW && mouseY >= sliderY && mouseY < sliderY + 10) {
+                    draggingHeightSlider = true;
+                    updateHeightSliderFromMouse(mouseX, trackX, trackW);
+                    return true;
+                }
+            }
+            
+            if (isGuest && hoverGuestCameraToggle && !guestReady) {
+                StageInviteManager mgr = StageInviteManager.getInstance();
+                mgr.setUseHostCamera(!mgr.isUseHostCamera());
                 return true;
             }
+            
+            if (isGuest && hoverReady && !guestReady) {
+                guestReady = true;
+                StageInviteManager mgr = StageInviteManager.getInstance();
+                java.util.UUID hostUUID = mgr.getWatchingHostUUID();
+                if (hostUUID != null) {
+                    StageNetworkHandler.sendReady(hostUUID, mgr.isUseHostCamera());
+                }
+                return true;
+            }
+            
             // 包列表点击
             if (hoveredPackIndex >= 0 && hoveredPackIndex < stagePacks.size()) {
                 selectedPackIndex = hoveredPackIndex;

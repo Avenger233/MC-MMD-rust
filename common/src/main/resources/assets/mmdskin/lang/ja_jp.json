@@ -116,6 +116,10 @@
   "gui.mmdskin.stage.assign_motion": "モーション割当",
   "gui.mmdskin.stage.assign_confirm": "確認",
   "gui.mmdskin.stage.assign_clear": "クリア",
+  "gui.mmdskin.stage.use_host_camera": "ホストのカメラを使用",
+  "gui.mmdskin.stage.ready": "準備完了",
+  "gui.mmdskin.stage.ready_done": "\u2713 準備完了、ホストの開始を待機中",
+  "gui.mmdskin.stage.waiting_ready": "メンバーの準備を待機中...",
   "gui.mmdskin.follow.join_hint": "%s のダンスに参加",
   "gui.mmdskin.follow.exit_hint": "ESC でフォローを終了",
 
