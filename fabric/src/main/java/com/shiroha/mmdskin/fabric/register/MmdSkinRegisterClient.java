@@ -265,6 +265,10 @@ public class MmdSkinRegisterClient {
             BoneSyncManager.onDisconnect();
             com.shiroha.mmdskin.ui.stage.StageInviteManager.getInstance().onDisconnect();
         });
+
+        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
+            (graphics, tickDelta) -> com.shiroha.mmdskin.renderer.core.PerformanceHud.render(graphics)
+        );
     }
     
     /**

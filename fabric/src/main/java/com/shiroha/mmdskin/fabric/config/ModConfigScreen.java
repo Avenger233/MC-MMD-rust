@@ -121,6 +121,16 @@ public class ModConfigScreen {
             .setTooltip(Component.translatable("gui.mmdskin.mod_settings.max_bones.tooltip"))
             .setSaveConsumer(value -> data.maxBones = value)
             .build());
+
+        performanceCategory.addEntry(entryBuilder
+            .startIntSlider(
+                Component.translatable("gui.mmdskin.mod_settings.texture_cache_budget"),
+                data.textureCacheBudgetMB, 64, 1024)
+            .setDefaultValue(256)
+            .setTooltip(Component.translatable("gui.mmdskin.mod_settings.texture_cache_budget.tooltip"))
+            .setTextGetter(value -> Component.literal(value + " MB"))
+            .setSaveConsumer(value -> data.textureCacheBudgetMB = value)
+            .build());
         
         // Toon 渲染设置分类（3渲2）
         ConfigCategory toonCategory = builder.getOrCreateCategory(
@@ -391,6 +401,18 @@ public class ModConfigScreen {
             .setTooltip(Component.translatable("gui.mmdskin.mod_settings.vr_arm_ik_strength.tooltip"))
             .setTextGetter(value -> Component.literal(value + "%"))
             .setSaveConsumer(value -> data.vrArmIKStrength = value / 100.0f)
+            .build());
+
+        ConfigCategory debugCategory = builder.getOrCreateCategory(
+            Component.translatable("gui.mmdskin.mod_settings.category.debug"));
+
+        debugCategory.addEntry(entryBuilder
+            .startBooleanToggle(
+                Component.translatable("gui.mmdskin.mod_settings.debug_hud"),
+                data.debugHudEnabled)
+            .setDefaultValue(false)
+            .setTooltip(Component.translatable("gui.mmdskin.mod_settings.debug_hud.tooltip"))
+            .setSaveConsumer(value -> data.debugHudEnabled = value)
             .build());
 
         builder.setSavingRunnable(() -> {
