@@ -9,10 +9,9 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
 /**
- * mc-vr-api 数据适配层（将 IVRData 转换为 Rust 引擎需要的 float[21]）
- * 布局：[head(7), mainHand(7), offHand(7)]，每组 [posX,posY,posZ, quatX,quatY,quatZ,quatW]
- * 调用方必须通过 VRDetector 守卫确保类存在
+ * mc-vr-api 数据适配层（SRP：将 IVRData 转换为 Rust 引擎需要的 float[21]）
  */
+
 public final class VRDataProvider {
 
     private VRDataProvider() {}

@@ -5,8 +5,8 @@ import java.util.List;
 
 /**
  * MMD 模型信息快照（不可变）
- * 通过 {@link MmdSkinApi#getModelInfo} 获取
  */
+
 public final class ModelInfo {
     private final int boneCount;
     private final int vertexCount;
@@ -24,14 +24,15 @@ public final class ModelInfo {
     }
 
     public int getBoneCount() { return boneCount; }
+
     public int getVertexCount() { return vertexCount; }
+
     public int getMaterialCount() { return materialCount; }
 
     public List<String> getBoneNames() {
         return Collections.unmodifiableList(boneNames);
     }
 
-    /** 所有骨骼实时位置 [x0,y0,z0, x1,y1,z1, ...] */
     public float[] getBonePositions() {
         return bonePositions.clone();
     }

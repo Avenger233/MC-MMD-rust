@@ -7,16 +7,18 @@ import com.shiroha.mmdskin.neoforge.config.ModConfigScreen;
 import com.shiroha.mmdskin.neoforge.network.MmdSkinNetworkPack;
 import com.shiroha.mmdskin.maid.MaidActionNetworkHandler;
 import com.shiroha.mmdskin.maid.MaidModelNetworkHandler;
-import com.shiroha.mmdskin.renderer.model.MMDModelManager;
-import com.shiroha.mmdskin.renderer.render.MmdSkinRenderFactory;
-import com.shiroha.mmdskin.renderer.render.MmdSkinRendererPlayerHelper;
+import com.shiroha.mmdskin.renderer.runtime.model.MMDModelManager;
+import com.shiroha.mmdskin.renderer.integration.entity.MmdSkinRenderFactory;
+import com.shiroha.mmdskin.player.runtime.MmdSkinRendererPlayerHelper;
 import com.shiroha.mmdskin.stage.application.StageSessionService;
 import com.shiroha.mmdskin.ui.network.ActionWheelNetworkHandler;
 import com.shiroha.mmdskin.ui.network.MorphWheelNetworkHandler;
 import com.shiroha.mmdskin.ui.network.NetworkOpCode;
 import com.shiroha.mmdskin.ui.network.PlayerModelSyncManager;
 import com.shiroha.mmdskin.ui.network.StageNetworkHandler;
-import com.shiroha.mmdskin.renderer.camera.MMDCameraController;
+import com.shiroha.mmdskin.stage.client.camera.MMDCameraController;
+import com.shiroha.mmdskin.stage.client.sync.StageAnimSyncHelper;
+import com.shiroha.mmdskin.debug.client.PerformanceHud;
 import com.shiroha.mmdskin.ui.QuickModelSwitcher;
 import com.shiroha.mmdskin.ui.wheel.ConfigWheelScreen;
 import com.shiroha.mmdskin.ui.wheel.MaidConfigWheelScreen;
@@ -115,28 +117,28 @@ public class MmdSkinRegisterClient {
         
         Minecraft MCinstance = Minecraft.getInstance();
         
-        ActionWheelNetworkHandler.setNetworkSender(animId -> {
+        ActionWheelNetworkHandler.getInstance().setNetworkSender(animId -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
                 PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.CUSTOM_ANIM, player.getUUID(), animId));
             }
         });
         
-        ActionWheelNetworkHandler.setAnimStopSender(() -> {
+        ActionWheelNetworkHandler.getInstance().setAnimStopSender(() -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
                 PacketDistributor.sendToServer(MmdSkinNetworkPack.withArg(NetworkOpCode.RESET_PHYSICS, player.getUUID(), 0));
             }
         });
         
-        MorphWheelNetworkHandler.setNetworkSender(morphName -> {
+        MorphWheelNetworkHandler.getInstance().setNetworkSender(morphName -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
                 PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MORPH_SYNC, player.getUUID(), morphName));
             }
         });
         
-        com.shiroha.mmdskin.ui.network.ModelSelectorNetworkHandler.setNetworkSender(modelName -> {
+        com.shiroha.mmdskin.ui.network.ModelSelectorNetworkHandler.getInstance().setNetworkSender(modelName -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
                 PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MODEL_SELECT, player.getUUID(), modelName));
@@ -147,14 +149,14 @@ public class MmdSkinRegisterClient {
             PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MODEL_SELECT, playerUUID, modelName));
         });
         
-        MaidModelNetworkHandler.setNetworkSender((entityId, modelName) -> {
+        MaidModelNetworkHandler.getInstance().setNetworkSender((entityId, modelName) -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
                 PacketDistributor.sendToServer(MmdSkinNetworkPack.forMaid(NetworkOpCode.MAID_MODEL, player.getUUID(), entityId, modelName));
             }
         });
         
-        MaidActionNetworkHandler.setNetworkSender((entityId, animId) -> {
+        MaidActionNetworkHandler.getInstance().setNetworkSender((entityId, animId) -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
                 PacketDistributor.sendToServer(MmdSkinNetworkPack.forMaid(NetworkOpCode.MAID_ACTION, player.getUUID(), entityId, animId));
@@ -234,7 +236,7 @@ public class MmdSkinRegisterClient {
             
             MMDModelManager.tick();
             
-            com.shiroha.mmdskin.renderer.render.StageAnimSyncHelper.tickPending();
+            StageAnimSyncHelper.tickPending();
 
             BoneSyncManager.tickLocal();
             if (mc.screen == null || mc.screen instanceof ConfigWheelScreen) {
@@ -320,7 +322,7 @@ public class MmdSkinRegisterClient {
          */
         @SubscribeEvent
         public static void onRenderGui(net.neoforged.neoforge.client.event.RenderGuiEvent.Post event) {
-            com.shiroha.mmdskin.renderer.core.PerformanceHud.render(event.getGuiGraphics());
+            PerformanceHud.render(event.getGuiGraphics());
         }
 
         /**

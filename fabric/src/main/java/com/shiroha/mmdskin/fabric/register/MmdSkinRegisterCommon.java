@@ -29,7 +29,6 @@ public class MmdSkinRegisterCommon {
             ServerPlayer player = context.player();
             UUID realUUID = player.getUUID();
 
-            // UUID 鉴权
             if (!realUUID.equals(payload.playerUUID())) {
                 logger.warn("UUID 不匹配，丢弃数据包: claimed={}, real={}", payload.playerUUID(), realUUID);
                 return;
@@ -37,17 +36,14 @@ public class MmdSkinRegisterCommon {
 
             int opCode = payload.opCode();
 
-            // 模型选择时更新服务端注册表
             if (opCode == NetworkOpCode.MODEL_SELECT) {
                 ServerModelRegistry.updateModel(realUUID, payload.stringArg());
             }
 
-            // REQUEST_ALL_MODELS：回传所有已注册模型给请求者，不转发
             if (opCode == NetworkOpCode.REQUEST_ALL_MODELS) {
                 context.server().execute(() -> {
                     ServerModelRegistry.sendAllTo((modelOwnerUUID, modelName) -> {
-                        MmdSkinPayload reply = MmdSkinPayload.createString(
-                                NetworkOpCode.MODEL_SELECT, modelOwnerUUID, modelName);
+                        MmdSkinPayload reply = MmdSkinPayload.createString(NetworkOpCode.MODEL_SELECT, modelOwnerUUID, modelName);
                         ServerPlayNetworking.send(player, reply);
                     });
                 });
@@ -58,14 +54,13 @@ public class MmdSkinRegisterCommon {
                 String stagePayload = payload.stringArg();
                 if (stagePayload != null && !stagePayload.isEmpty()) {
                     context.server().execute(() ->
-                            FabricStageSessionRegistry.getInstance().handlePacket(context.server(), player, stagePayload));
+                        FabricStageSessionRegistry.getInstance().handlePacket(context.server(), player, stagePayload));
                 }
                 return;
             }
 
             MmdSkinPayload corrected = new MmdSkinPayload(
-                    opCode, realUUID, payload.intArg(), payload.entityId(),
-                    payload.stringArg(), payload.binaryData());
+                opCode, realUUID, payload.intArg(), payload.entityId(), payload.stringArg(), payload.binaryData());
 
             context.server().execute(() -> {
                 for (ServerPlayer serverPlayer : PlayerLookup.all(context.server())) {
@@ -76,7 +71,6 @@ public class MmdSkinRegisterCommon {
             });
         });
 
-        // 玩家离线时清理服务端注册表
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
                     ServerModelRegistry.onPlayerLeave(handler.getPlayer().getUUID());
@@ -84,3 +78,4 @@ public class MmdSkinRegisterCommon {
                 });
     }
 }
+

@@ -11,8 +11,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * VR 手持物品渲染器（在控制器位置渲染手持物品）
+ * VR 手持物品渲染器（SRP：在控制器位置渲染手持物品）
  */
+
 public final class VRHandRenderer {
 
     private static final Logger LOGGER = LogManager.getLogger();

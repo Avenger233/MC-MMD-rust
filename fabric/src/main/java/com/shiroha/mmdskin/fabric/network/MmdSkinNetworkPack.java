@@ -3,9 +3,9 @@ package com.shiroha.mmdskin.fabric.network;
 import java.util.UUID;
 
 import com.shiroha.mmdskin.maid.MaidMMDModelManager;
-import com.shiroha.mmdskin.renderer.animation.PendingAnimSignalCache;
-import com.shiroha.mmdskin.renderer.render.MmdSkinRendererPlayerHelper;
-import com.shiroha.mmdskin.renderer.render.MorphSyncHelper;
+import com.shiroha.mmdskin.player.animation.PendingAnimSignalCache;
+import com.shiroha.mmdskin.player.runtime.MmdSkinRendererPlayerHelper;
+import com.shiroha.mmdskin.player.sync.MorphSyncHelper;
 import com.shiroha.mmdskin.ui.network.NetworkOpCode;
 import com.shiroha.mmdskin.ui.network.PlayerModelSyncManager;
 
@@ -23,16 +23,16 @@ public class MmdSkinNetworkPack {
         ClientPlayNetworking.send(MmdSkinPayload.createInt(opCode, playerUUID, arg0));
     }
 
+    public static void sendBinaryToServer(int opCode, UUID playerUUID, byte[] data) {
+        ClientPlayNetworking.send(MmdSkinPayload.createBinary(opCode, playerUUID, data));
+    }
+
     public static void sendToServer(int opCode, UUID playerUUID, String animId) {
         ClientPlayNetworking.send(MmdSkinPayload.createString(opCode, playerUUID, animId));
     }
 
     public static void sendToServer(int opCode, UUID playerUUID, int entityId, String data) {
         ClientPlayNetworking.send(MmdSkinPayload.createMaid(opCode, playerUUID, entityId, data));
-    }
-
-    public static void sendBinaryToServer(int opCode, UUID playerUUID, byte[] data) {
-        ClientPlayNetworking.send(MmdSkinPayload.createBinary(opCode, playerUUID, data));
     }
 
     public static void handlePayload(MmdSkinPayload payload) {
@@ -53,6 +53,7 @@ public class MmdSkinNetworkPack {
 
     private static void handleInt(int opCode, UUID playerUUID, int arg0) {
         Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || playerUUID.equals(mc.player.getUUID())) return;
         if (mc.level == null) return;
 
         if (opCode == NetworkOpCode.RESET_PHYSICS) {
@@ -92,6 +93,7 @@ public class MmdSkinNetworkPack {
 
     private static void handleMaid(int opCode, UUID playerUUID, int entityId, String data) {
         Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || playerUUID.equals(mc.player.getUUID())) return;
         if (mc.level == null) return;
 
         Entity maidEntity = mc.level.getEntity(entityId);
@@ -104,3 +106,4 @@ public class MmdSkinNetworkPack {
         }
     }
 }
+

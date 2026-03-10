@@ -1,7 +1,7 @@
 package com.shiroha.mmdskin.api;
 
 import com.shiroha.mmdskin.NativeFunc;
-import com.shiroha.mmdskin.renderer.render.PlayerModelResolver;
+import com.shiroha.mmdskin.player.model.PlayerModelResolver;
 import net.minecraft.world.entity.player.Player;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -14,8 +14,8 @@ import java.util.List;
 
 /**
  * MMD Skin 公共 API（外部模组调用入口）
- * 只读接口，线程安全，模型不存在时返回 null / 空集合
  */
+
 public final class MmdSkinApi {
     private static final Logger logger = LogManager.getLogger();
 
@@ -94,12 +94,14 @@ public final class MmdSkinApi {
         if (json == null || json.length() <= 2) {
             return Collections.emptyList();
         }
+
         String content = json.substring(1, json.length() - 1);
         if (content.isEmpty()) {
             return Collections.emptyList();
         }
 
         List<String> names = new ArrayList<>();
+
         boolean inQuote = false;
         boolean escaped = false;
         StringBuilder sb = new StringBuilder();

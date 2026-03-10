@@ -1,7 +1,8 @@
 package com.shiroha.mmdskin.ui.selector;
 
-import com.shiroha.mmdskin.renderer.model.ModelInfo;
-import com.shiroha.mmdskin.renderer.model.SceneModelManager;
+import com.shiroha.mmdskin.asset.catalog.ModelInfo;
+import com.shiroha.mmdskin.scene.client.SceneModelCatalog;
+import com.shiroha.mmdskin.scene.client.SceneModelManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -13,14 +14,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
-<<<<<<< Updated upstream
- * 场景模型选择界面 — 复用 ModelSelectorScreen 的面板风格
-=======
- * Scene model selector screen.
->>>>>>> Stashed changes
+ * 场景模型选择界面。
  */
 public class SceneSelectorScreen extends Screen {
     private static final Logger logger = LogManager.getLogger();
+    private static final SceneModelCatalog SCENE_CATALOG = SceneModelCatalog.getInstance();
 
     private static final int PANEL_WIDTH = 140;
     private static final int PANEL_MARGIN = 4;
@@ -59,7 +57,7 @@ public class SceneSelectorScreen extends Screen {
 
     private void loadAvailableScenes() {
         sceneCards.clear();
-        List<ModelInfo> models = SceneModelManager.scanSceneModels();
+        List<ModelInfo> models = SCENE_CATALOG.listModels();
         for (ModelInfo info : models) {
             sceneCards.add(new SceneCardEntry(info.getFolderName(), info));
         }
@@ -102,7 +100,7 @@ public class SceneSelectorScreen extends Screen {
     }
 
     private void refreshScenes() {
-        SceneModelManager.invalidateSceneCache();
+        SCENE_CATALOG.invalidate();
         loadAvailableScenes();
         scrollOffset = 0;
         this.clearWidgets();
@@ -112,11 +110,7 @@ public class SceneSelectorScreen extends Screen {
     private void selectScene(SceneCardEntry card) {
         this.currentScene = card.displayName;
         SceneModelManager.getInstance().placeScene(card.displayName);
-<<<<<<< Updated upstream
         logger.info("放置场景模型: {}", card.displayName);
-=======
-        logger.info("Placed scene model: {}", card.displayName);
->>>>>>> Stashed changes
         this.clearWidgets();
         this.init();
     }

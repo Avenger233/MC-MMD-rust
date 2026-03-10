@@ -8,50 +8,41 @@ import java.nio.file.Path;
 /**
  * 路径常量类，集中管理所有文件路径
  */
+
 public final class PathConstants {
 
-    // ==================== 根目录 ====================
     public static final String SKIN_ROOT_DIR = "3d-skin";
     public static final String CONFIG_ROOT_DIR = "config/mmdskin";
 
-    // ==================== 模型目录 ====================
     public static final String ENTITY_PLAYER_DIR = "EntityPlayer";
     public static final String SCENE_MODEL_DIR = "SceneModel";
 
-    // ==================== 动画目录 ====================
     public static final String DEFAULT_ANIM_DIR = "DefaultAnim";
     public static final String CUSTOM_ANIM_DIR = "CustomAnim";
     public static final String STAGE_ANIM_DIR = "StageAnim";
     public static final String MODEL_ANIMS_DIR = "anims";
     public static final String MODEL_ANIM_CONFIG = "animations.json";
 
-    // ==================== 表情目录 ====================
     public static final String DEFAULT_MORPH_DIR = "DefaultMorph";
     public static final String CUSTOM_MORPH_DIR = "CustomMorph";
 
-    // ==================== 着色器目录 ====================
     public static final String SHADER_DIR = "shader";
 
-    // ==================== 配置文件名 ====================
     public static final String ACTION_WHEEL_CONFIG = "action_wheel.json";
     public static final String MODEL_SELECTOR_CONFIG = "model_selector.json";
     public static final String MORPH_WHEEL_CONFIG = "morph_wheel.json";
     public static final String MAIN_CONFIG = "config.json";
     public static final String STAGE_CONFIG = "stage_config.json";
 
-    // ==================== 文件扩展名 ====================
     public static final String VMD_EXTENSION = ".vmd";
     public static final String VPD_EXTENSION = ".vpd";
     public static final String PMX_EXTENSION = ".pmx";
     public static final String PMD_EXTENSION = ".pmd";
     public static final String[] AUDIO_EXTENSIONS = {".mp3", ".ogg", ".wav"};
 
-    // ==================== 下载链接 ====================
     public static final String RESOURCE_DOWNLOAD_URL =
         "https://github.com/Gengorou-C/3d-skin-C/releases/download/requiredFiles/3d-skin.zip";
     public static final String RESOURCE_ZIP_NAME = "3d-skin.zip";
-
-    // ==================== 路径获取方法 ====================
 
     private PathConstants() {}
 
@@ -78,7 +69,7 @@ public final class PathConstants {
     public static File getEntityPlayerDir() {
         return new File(getSkinRootDir(), ENTITY_PLAYER_DIR);
     }
-    
+
     public static File getSceneModelDir() {
         return new File(getSkinRootDir(), SCENE_MODEL_DIR);
     }
@@ -163,9 +154,6 @@ public final class PathConstants {
         return new File(getModelDir(modelName), morphName + VPD_EXTENSION).getAbsolutePath();
     }
 
-    /**
-     * @return true 表示目录是新创建的
-     */
     public static boolean ensureDirectoryExists(File dir) {
         if (!dir.exists()) {
             return dir.mkdirs();
@@ -173,14 +161,13 @@ public final class PathConstants {
         return false;
     }
 
-    /** 确保 StageAnim 目录存在 */
     public static void ensureStageAnimDir() {
         File stageDir = getStageAnimDir();
         if (!stageDir.exists()) {
             stageDir.mkdirs();
         }
     }
-    
+
     public static void ensureSceneModelDir() {
         File sceneDir = getSceneModelDir();
         if (!sceneDir.exists()) {

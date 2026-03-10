@@ -2,8 +2,8 @@ package com.shiroha.mmdskin.mixin.neoforge;
 
 import com.shiroha.mmdskin.compat.vr.VRArmHider;
 import com.shiroha.mmdskin.neoforge.YsmCompat;
-import com.shiroha.mmdskin.renderer.core.FirstPersonManager;
-import com.shiroha.mmdskin.renderer.core.IrisCompat;
+import com.shiroha.mmdskin.player.runtime.FirstPersonManager;
+import com.shiroha.mmdskin.renderer.compat.IrisCompat;
 import com.shiroha.mmdskin.ui.network.PlayerModelSyncManager;
 import net.minecraft.client.Camera;
 import net.minecraft.client.player.AbstractClientPlayer;

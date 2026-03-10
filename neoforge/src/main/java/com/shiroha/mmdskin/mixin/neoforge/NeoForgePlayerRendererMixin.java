@@ -2,8 +2,8 @@ package com.shiroha.mmdskin.mixin.neoforge;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.shiroha.mmdskin.neoforge.YsmCompat;
-import com.shiroha.mmdskin.renderer.render.PlayerMixinDelegate;
-import com.shiroha.mmdskin.renderer.render.PlayerMixinDelegate.RenderAction;
+import com.shiroha.mmdskin.renderer.integration.player.PlayerMixinDelegate;
+import com.shiroha.mmdskin.renderer.integration.player.PlayerMixinDelegate.RenderAction;
 
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;

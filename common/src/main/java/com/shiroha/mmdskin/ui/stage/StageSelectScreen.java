@@ -2,11 +2,10 @@ package com.shiroha.mmdskin.ui.stage;
 
 import com.shiroha.mmdskin.config.StagePack;
 import com.shiroha.mmdskin.config.StageConfig;
-import com.shiroha.mmdskin.renderer.camera.MMDCameraController;
+import com.shiroha.mmdskin.stage.client.StagePlaybackCoordinator;
 import com.shiroha.mmdskin.stage.client.asset.LocalStagePackRepository;
 import com.shiroha.mmdskin.stage.client.playback.StageHostPlaybackService;
 import com.shiroha.mmdskin.stage.client.viewmodel.StageLobbyViewModel;
-import com.shiroha.mmdskin.ui.network.StageNetworkHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -56,6 +55,10 @@ public class StageSelectScreen extends Screen {
     public void markStartedByHost() {
         this.stageStarted = true;
     }
+
+    public void prepareForExternalClose() {
+        this.stageStarted = true;
+    }
     
     private int packScrollOffset = 0;
     private int packMaxScroll = 0;
@@ -80,21 +83,18 @@ public class StageSelectScreen extends Screen {
     private final StageLobbyViewModel lobbyViewModel = StageLobbyViewModel.getInstance();
     private final LocalStagePackRepository stagePackRepository = LocalStagePackRepository.getInstance();
     private final StageHostPlaybackService hostPlaybackService = StageHostPlaybackService.getInstance();
-
+    private final StagePlaybackCoordinator playbackCoordinator = StagePlaybackCoordinator.getInstance();
+    
     public StageSelectScreen() {
         super(Component.translatable("gui.mmdskin.config.stage_mode"));
         StageConfig config = StageConfig.getInstance();
         this.cinematicMode = config.cinematicMode;
         this.cameraHeightOffset = config.cameraHeightOffset;
         stagePacks = stagePackRepository.loadStagePacks();
-
+        
         restoreSelection(config);
     }
-
-    @Override
-    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-    }
-
+    
     private void restoreSelection(StageConfig config) {
         if (!config.lastStagePack.isEmpty()) {
             for (int i = 0; i < stagePacks.size(); i++) {
@@ -109,31 +109,25 @@ public class StageSelectScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-
-        MMDCameraController ctrl = MMDCameraController.getInstance();
-        ctrl.enterStageMode();
-
-        if (lobbyViewModel.isSessionMember()) {
-            ctrl.setWaitingForHost(true);
-        }
+        playbackCoordinator.onStageSelectionOpened();
 
         panelX = PANEL_MARGIN;
         panelY = PANEL_MARGIN;
         panelH = this.height - PANEL_MARGIN * 2;
-
+        
         boolean isGuest = lobbyViewModel.isSessionMember();
         int footerH = isGuest ? GUEST_FOOTER_HEIGHT : FOOTER_HEIGHT;
-
+        
         packListTop = panelY + HEADER_HEIGHT;
         splitY = panelY + (int)((panelH - HEADER_HEIGHT - footerH) * 0.55f) + HEADER_HEIGHT;
         packListBottom = splitY - 2;
         
         detailTop = splitY + DETAIL_HEADER;
         detailBottom = panelY + panelH - footerH;
-
+        
         updatePackScroll();
         updateDetailScroll();
-
+        
         assignPanel = new StageAssignPanel(this.font);
         assignPanel.layout(this.width, this.height);
         StagePack selected = getSelectedPack();
@@ -142,9 +136,9 @@ public class StageSelectScreen extends Screen {
             assignPanel.setStagePack(selected);
         }
     }
-
+    
     private int tickCounter = 0;
-
+    
     @Override
     public void tick() {
         super.tick();
@@ -203,11 +197,11 @@ public class StageSelectScreen extends Screen {
         renderDetailList(g, mouseX, mouseY);
         renderScrollbar(g, detailTop, detailBottom, detailScrollOffset, detailMaxScroll);
         renderFooter(g, mouseX, mouseY);
-
+        
         if (assignPanel != null) {
             assignPanel.render(g, mouseX, mouseY);
         }
-
+        
         super.render(g, mouseX, mouseY, partialTick);
     }
     
@@ -396,7 +390,7 @@ public class StageSelectScreen extends Screen {
         }
     }
     
-    /** 房主 footer：影院模式开关 + 高度滑块 + 开始/取消按钮 */
+    
     private void renderHostFooter(GuiGraphics g, int mouseX, int mouseY, int footerY) {
         int toggleX = panelX + 8;
         int toggleY = footerY + 4;
@@ -466,7 +460,7 @@ public class StageSelectScreen extends Screen {
         }
     }
     
-    /** 被邀请者 footer：使用房主镜头开关 + 准备好了/取消按钮 */
+
     private void renderGuestFooter(GuiGraphics g, int mouseX, int mouseY, int footerY) {
         boolean useHostCamera = lobbyViewModel.isUseHostCamera();
         boolean guestReady = lobbyViewModel.isLocalReady();
@@ -519,7 +513,7 @@ public class StageSelectScreen extends Screen {
         g.drawCenteredString(this.font,
             Component.translatable(guestReady ? "gui.mmdskin.stage.unready" : "gui.mmdskin.stage.ready"),
             readyX + btnW / 2, btnY + 4, 0xFFFFFFFF);
-
+        
         g.drawCenteredString(this.font,
             Component.translatable(guestReady ? "gui.mmdskin.stage.ready_done" : "gui.mmdskin.stage.waiting_host"),
             panelX + PANEL_WIDTH / 2, btnY + 22, guestReady ? COLOR_TOGGLE_ON : COLOR_TEXT_DIM);
@@ -557,7 +551,7 @@ public class StageSelectScreen extends Screen {
                 lobbyViewModel.setUseHostCamera(!lobbyViewModel.isUseHostCamera());
                 return true;
             }
-            
+
             if (isGuest && hoverReady) {
                 lobbyViewModel.setLocalReady(!lobbyViewModel.isLocalReady());
                 return true;
@@ -660,24 +654,10 @@ public class StageSelectScreen extends Screen {
         this.stageStarted = true;
         this.onClose();
     }
-
+    
     @Override
     public void onClose() {
-        if (!stageStarted) {
-            MMDCameraController ctrl = MMDCameraController.getInstance();
-            if (lobbyViewModel.isSessionMember()) {
-                UUID hostUUID = lobbyViewModel.getWatchingHostUUID();
-                if (hostUUID != null) {
-                    StageNetworkHandler.sendLeave(hostUUID, lobbyViewModel.getSessionId());
-                }
-                ctrl.setWaitingForHost(false);
-                ctrl.exitStageMode();
-                lobbyViewModel.stopWatching();
-            } else {
-                ctrl.exitStageMode();
-                lobbyViewModel.closeHostedSession();
-            }
-        }
+        playbackCoordinator.onStageSelectionClosed(stageStarted);
         super.onClose();
     }
     
@@ -689,4 +669,5 @@ public class StageSelectScreen extends Screen {
     private static String truncate(String s, int max) {
         return s.length() > max ? s.substring(0, max - 2) + ".." : s;
     }
+    
 }

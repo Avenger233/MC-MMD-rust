@@ -4,8 +4,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * mc-vr-api 运行时检测守卫（线程安全，惰性检测）
+ * mc-vr-api 运行时检测守卫
  */
+
 public final class VRDetector {
 
     private static final Logger logger = LogManager.getLogger();

@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -15,16 +15,10 @@ import org.apache.logging.log4j.Logger;
 
 /**
  * 原生库加载器（SRP：仅负责平台检测、库提取/下载/清理/加载）
- *
- * 加载策略优先级：
- * 1. 从模组内置资源提取（确保版本一致）
- * 2. 从 GitHub Release 自动下载
- * Android 有专用的多策略加载流程。
  */
+
 public final class NativeLibraryLoader {
     private static final Logger logger = LogManager.getLogger();
-
-    // ==================== 平台检测 ====================
 
     private static final boolean isAndroid;
     private static final boolean isLinux;
@@ -40,7 +34,6 @@ public final class NativeLibraryLoader {
         isLoongArch64 = arch.contains("loongarch64") || arch.contains("loong64");
         isRiscv64 = arch.contains("riscv64");
 
-        // Android 检测（FCL/PojavLauncher 等启动器使用标准 JVM）
         boolean androidDetected = false;
         String[] launcherEnvKeys = { "FCL_NATIVEDIR", "POJAV_NATIVEDIR", "MOD_ANDROID_RUNTIME", "FCL_VERSION_CODE" };
         for (String key : launcherEnvKeys) {
@@ -70,16 +63,11 @@ public final class NativeLibraryLoader {
         isLinux = System.getProperty("os.name").toLowerCase().contains("linux") && !isAndroid;
     }
 
-    /** 供其他模块查询当前是否运行在 Android 环境 */
     public static boolean isAndroid() { return isAndroid; }
-
-    // ==================== 版本与下载 ====================
 
     static final String LIBRARY_VERSION = "v1.0.3";
     private static final String RELEASE_BASE_URL =
-            "https://github.com/shiroha-233/MC-MMD-rust/releases/download/" + LIBRARY_VERSION + "/";
-
-    // ==================== 游戏目录缓存 ====================
+            "https://github.com/shiroha-23/MC-MMD-rust/releases/download/" + LIBRARY_VERSION + "/";
 
     private static volatile String gameDirectory;
     private static final Object DIR_LOCK = new Object();
@@ -95,13 +83,8 @@ public final class NativeLibraryLoader {
         return gameDirectory;
     }
 
-    // ==================== 入口 ====================
-
     private NativeLibraryLoader() {}
 
-    /**
-     * 加载原生库并校验版本（由 NativeFunc 在首次初始化时调用）
-     */
     static void loadAndVerify(NativeFunc instance) {
         if (isAndroid) {
             loadAndroid();
@@ -110,8 +93,6 @@ public final class NativeLibraryLoader {
         }
         verifyLoadedLibraryVersion(instance);
     }
-
-    // ==================== 桌面端加载 ====================
 
     private static void loadDesktop() {
         String resourcePath;
@@ -153,7 +134,6 @@ public final class NativeLibraryLoader {
 
         cleanupOldLibraries(fileName, downloadFileName);
 
-        // 策略1: 从模组内置资源提取
         File extracted = extractNativeLibrary(resourcePath, fileName);
         if (extracted != null) {
             try {
@@ -164,7 +144,6 @@ public final class NativeLibraryLoader {
             }
         }
 
-        // 策略2: 从 GitHub Release 下载
         File downloaded = downloadNativeLibrary(downloadFileName);
         if (downloaded != null) {
             try {
@@ -178,8 +157,6 @@ public final class NativeLibraryLoader {
         throw new UnsatisfiedLinkError("无法加载原生库: " + getVersionedFileName(fileName)
                 + "，请检查网络连接或从 " + RELEASE_BASE_URL + " 手动下载");
     }
-
-    // ==================== Android 加载 ====================
 
     private static void loadAndroid() {
         logger.info("Android Env Detected! Arch: a" + (isArm64 ? "rm" : "md") + "64");
@@ -195,15 +172,14 @@ public final class NativeLibraryLoader {
         if (!isLibcLoaded && libcPath != null) {
             try {
                 System.load(libcPath);
-                logger.info("[Android] libc++_shared.so loaded: " + libcPath);
+                logger.info("[Android] libc++_shared.so 已加载：" + libcPath);
                 isLibcLoaded = true;
             } catch (Throwable e) {
-                logger.warn("[Android] " + libcFileName + " load failed", e);
+                logger.warn("[Android] " + libcFileName + "加载失败。", e);
                 libcPath = null;
             }
         }
 
-        // 策略0: 写入 $JAVA_HOME/lib
         var javaHome = System.getProperty("java.home");
         var javaLibDir = new File(javaHome, "lib");
         var javaLibSoFile = new File(javaLibDir, soFileName);
@@ -212,9 +188,11 @@ public final class NativeLibraryLoader {
                 if (is == null) {
                     logger.warn("[Android] 策略0: 内置资源未找到: " + resourcePath);
                 } else {
+
                     if (!isLibcLoaded) {
                         isLibcLoaded = ensureLibcLoaded(libcResPath, libcFileName, javaLibDir);
                     }
+
                     if (isLibcLoaded) {
                         Files.copy(is, javaLibSoFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                         System.load(javaLibSoFile.getAbsolutePath());
@@ -228,25 +206,25 @@ public final class NativeLibraryLoader {
             logger.warn("[Android] JAVA_HOME 无法写入，跳过");
         }
 
-        // 策略1: LD_LIBRARY_PATH
         try {
+
             if (!isLibcLoaded) {
                 System.loadLibrary("c++_shared");
                 isLibcLoaded = isLibcLoaded();
             }
             if (isLibcLoaded) {
-                System.loadLibrary("mmd_engine");
-                return;
+                    System.loadLibrary("mmd_engine");
+                    return;
             }
         } catch (Error e) {
             logger.warn("[Android] 策略1 失败: " + e.getMessage());
         }
 
-        // 策略2: MOD_ANDROID_RUNTIME
         String modRuntimeDir = System.getenv("MOD_ANDROID_RUNTIME");
         if (modRuntimeDir != null && !modRuntimeDir.isEmpty()) {
             try {
                 if (!isLibcLoaded) {
+
                     isLibcLoaded = ensureLibcLoaded(libcResPath, libcFileName, new File(modRuntimeDir));
                 }
                 if (isLibcLoaded) {
@@ -257,8 +235,8 @@ public final class NativeLibraryLoader {
                     try (InputStream is = NativeLibraryLoader.class.getResourceAsStream(resourcePath)) {
                         if (is != null) {
                             Files.copy(is, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                            System.load(targetFile.getAbsolutePath());
-                            return;
+                                System.load(targetFile.getAbsolutePath());
+                                return;
                         }
                     }
                 }
@@ -267,7 +245,6 @@ public final class NativeLibraryLoader {
             }
         }
 
-        // 策略3: POJAV_NATIVEDIR
         String pojavNativeDir = System.getenv("POJAV_NATIVEDIR");
         if (pojavNativeDir != null && !pojavNativeDir.isEmpty()) {
             try {
@@ -293,7 +270,6 @@ public final class NativeLibraryLoader {
             }
         }
 
-        // 策略4: 游戏目录
         File extracted = extractNativeLibrary(resourcePath, soFileName);
         if (extracted != null) {
             try {
@@ -302,15 +278,14 @@ public final class NativeLibraryLoader {
                     isLibcLoaded = ensureLibcLoaded(libcResPath, libcFileName, gameDir);
                 }
                 if (isLibcLoaded) {
-                    System.load(extracted.getAbsolutePath());
-                    return;
+                        System.load(extracted.getAbsolutePath());
+                        return;
                 }
             } catch (Error e) {
                 logger.error("[Android] 策略4 失败 (游戏目录): " + e.getClass().getName() + ": " + e.getMessage());
             }
         }
 
-        // 策略5: GitHub 下载
         File downloaded = downloadNativeLibrary("libmmd_engine-android-a" + (isArm64 ? "rm" : "md") + "64.so");
         if (downloaded != null) {
             try {
@@ -319,8 +294,8 @@ public final class NativeLibraryLoader {
                     isLibcLoaded = ensureLibcLoaded(libcResPath, libcFileName, gameDir);
                 }
                 if (isLibcLoaded) {
-                    System.load(downloaded.getAbsolutePath());
-                    return;
+                        System.load(downloaded.getAbsolutePath());
+                        return;
                 }
             } catch (Error e) {
                 logger.error("[Android] 策略5 失败 (下载): " + e.getClass().getName() + ": " + e.getMessage());
@@ -334,17 +309,14 @@ public final class NativeLibraryLoader {
                 + getVersionedFileName("libmmd_engine-android-a" + (isArm64 ? "rm" : "md") + "64.so"));
     }
 
-    // ==================== 工具方法 ====================
-
     private static boolean isLibcLoaded() {
         File[] maps = new File("/proc/" + ProcessHandle.current().pid() + "/map_files").listFiles();
-        if (maps == null) return false;
         for (var f : maps)
             if (f.getAbsolutePath().contains("libc++_shared.so")) {
-                logger.info("[Android] libc++_shared.so already loaded: " + f.getAbsolutePath());
+                logger.info("[Android] libc++_shared.so 已预加载：" + f.getAbsolutePath());
                 return true;
             }
-        logger.warn("[Android] libc++_shared.so not loaded, will try later.");
+        logger.warn("[Android] 未加载libc++_shared.so，将在之后尝试加载。");
         return false;
     }
 
@@ -383,7 +355,7 @@ public final class NativeLibraryLoader {
                     }
                 }
             } catch (IOException e) {
-                logger.warn("[Android] Error searching libc++_shared.so: " + dir + " -> " + e.getMessage());
+                logger.warn("[Android] 查找 libc++_shared.so 库时发生错误: " + dir + " -> " + e.getMessage());
             }
         }
         return null;
@@ -397,35 +369,33 @@ public final class NativeLibraryLoader {
             targetDir = new File(getGameDirectory());
         }
         if (!targetDir.exists() && !targetDir.mkdirs()) {
-            logger.warn("[Android] Cannot create dir for libc: " + targetDir);
+            logger.warn("[Android] 无法创建目标目录以解压 libc: " + targetDir);
         }
+
         if (!targetDir.canWrite()) {
-            logger.warn("[Android] Dir not writable for libc: " + targetDir);
+            logger.warn("[Android] 目标目录不可写，无法解压 libc: " + targetDir);
             return false;
         }
+
         try (InputStream is = NativeLibraryLoader.class.getResourceAsStream(libcResource)) {
             if (is == null) {
-                logger.warn("[Android] Built-in libc resource not found: " + libcResource);
+                logger.warn("[Android] 内置 libc 资源未找到: " + libcResource);
                 return false;
             }
             File out = new File(targetDir, libcFileName);
             Files.copy(is, out.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            logger.info("[Android] Extracted libc++_shared.so to " + out.getAbsolutePath());
+            logger.info("[Android] 已将 libc++_shared.so 解压至 " + out.getAbsolutePath());
             try {
                 System.load(out.getAbsolutePath());
             } catch (Throwable t) {
-                logger.warn("[Android] Extracted libc load failed: " + t.getMessage(), t);
+                logger.warn("[Android] 解压后的 libc 加载失败: " + t.getMessage(), t);
             }
         } catch (IOException e) {
-            logger.warn("[Android] Extract libc failed: " + e.getMessage(), e);
+            logger.warn("[Android] 解压 libc 失败: " + e.getMessage(), e);
         }
         return isLibcLoaded();
     }
 
-    /**
-     * 版本化文件名，避免文件替换冲突。
-     * 例如: mmd_engine.dll → mmd_engine_v1.0.2.dll
-     */
     private static String getVersionedFileName(String baseFileName) {
         int dotIndex = baseFileName.lastIndexOf('.');
         if (dotIndex > 0) {
@@ -434,7 +404,6 @@ public final class NativeLibraryLoader {
         return baseFileName + "_" + LIBRARY_VERSION;
     }
 
-    /** 从模组内置资源提取原生库（版本化文件名） */
     private static File extractNativeLibrary(String resourcePath, String fileName) {
         try {
             String versionedName = getVersionedFileName(fileName);
@@ -452,7 +421,7 @@ public final class NativeLibraryLoader {
                 }
                 Path tempPath = Paths.get(getGameDirectory(), versionedName + ".tmp");
                 Files.copy(is, tempPath, StandardCopyOption.REPLACE_EXISTING);
-            Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
             }
 
             return targetFile;
@@ -462,7 +431,6 @@ public final class NativeLibraryLoader {
         }
     }
 
-    /** 从 GitHub Release 下载原生库 */
     private static File downloadNativeLibrary(String downloadFileName) {
         try {
             String versionedName = getVersionedFileName(downloadFileName);
@@ -476,7 +444,7 @@ public final class NativeLibraryLoader {
 
             HttpURLConnection conn = null;
             for (int i = 0; i < 5; i++) {
-                conn = (HttpURLConnection) URI.create(urlStr).toURL().openConnection();
+                conn = (HttpURLConnection) new URL(urlStr).openConnection();
                 conn.setInstanceFollowRedirects(false);
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(60000);
@@ -518,7 +486,6 @@ public final class NativeLibraryLoader {
         }
     }
 
-    /** 清理旧版本库文件和遗留辅助文件 */
     private static void cleanupOldLibraries(String baseFileName, String downloadBaseFileName) {
         try {
             File gameDir = new File(getGameDirectory());
@@ -565,7 +532,6 @@ public final class NativeLibraryLoader {
         }
     }
 
-    /** 版本校验：调用 GetVersion() 与 Java 侧版本比较 */
     private static void verifyLoadedLibraryVersion(NativeFunc instance) {
         try {
             String rustVersion = instance.GetVersion();

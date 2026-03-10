@@ -1,6 +1,6 @@
 package com.shiroha.mmdskin.mixin.neoforge;
 
-import com.shiroha.mmdskin.renderer.core.FirstPersonManager;
+import com.shiroha.mmdskin.player.runtime.FirstPersonManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;

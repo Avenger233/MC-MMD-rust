@@ -7,8 +7,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * VR 骨骼驱动层（将 VR 追踪数据转换到模型空间并传递给 Rust IK）
+ * VR 骨骼驱动层（SRP：将 VR 追踪数据转换到模型空间并传递给 Rust IK）
  */
+
 public final class VRBoneDriver {
 
     private static final Logger LOGGER = LogManager.getLogger();
@@ -42,14 +43,17 @@ public final class VRBoneDriver {
             float[] localData = new float[21];
             for (int i = 0; i < 3; i++) {
                 int off = i * 7;
+
                 float dx = worldData[off]     - px;
                 float dy = worldData[off + 1] - py;
                 float dz = worldData[off + 2] - pz;
+
                 float lx =  cosY * dx + sinY * dz;
                 float lz = -sinY * dx + cosY * dz;
                 localData[off]     = lx / MODEL_SCALE;
                 localData[off + 1] = dy / MODEL_SCALE;
                 localData[off + 2] = lz / MODEL_SCALE;
+
                 transformRotation(worldData, off + 3, localData, off + 3, cosY, sinY);
             }
 
@@ -64,6 +68,7 @@ public final class VRBoneDriver {
     private static void transformRotation(float[] src, int si,
                                            float[] dst, int di,
                                            float cosY, float sinY) {
+
         float cosH = (float) Math.sqrt((1.0f + cosY) * 0.5f);
         float sinH = (float) Math.sqrt(Math.max(0, (1.0f - cosY) * 0.5f));
         if (sinY > 0) sinH = -sinH;

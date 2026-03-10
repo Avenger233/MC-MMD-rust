@@ -418,10 +418,10 @@ public class ModConfigScreen {
         builder.setSavingRunnable(() -> {
             MmdSkinConfig.save();
             // 同步渲染模式设置到工厂
-            com.shiroha.mmdskin.renderer.core.RenderModeManager.setUseGpuSkinning(data.gpuSkinningEnabled);
+            com.shiroha.mmdskin.renderer.runtime.mode.RenderModeManager.setUseGpuSkinning(data.gpuSkinningEnabled);
             // 仅在 GPU 蒙皮开关实际变化时才重载模型（避免切换第一人称等配置时不必要的重建）
             if (oldGpuSkinning != data.gpuSkinningEnabled) {
-                com.shiroha.mmdskin.renderer.model.MMDModelManager.forceReloadAllModels();
+                com.shiroha.mmdskin.renderer.runtime.model.MMDModelManager.forceReloadAllModels();
             }
             // 同步物理配置到 Rust 引擎
             try {
