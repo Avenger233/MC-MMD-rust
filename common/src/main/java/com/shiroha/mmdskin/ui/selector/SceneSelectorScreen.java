@@ -13,7 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+<<<<<<< Updated upstream
  * 场景模型选择界面 — 复用 ModelSelectorScreen 的面板风格
+=======
+ * Scene model selector screen.
+>>>>>>> Stashed changes
  */
 public class SceneSelectorScreen extends Screen {
     private static final Logger logger = LogManager.getLogger();
@@ -108,7 +112,11 @@ public class SceneSelectorScreen extends Screen {
     private void selectScene(SceneCardEntry card) {
         this.currentScene = card.displayName;
         SceneModelManager.getInstance().placeScene(card.displayName);
+<<<<<<< Updated upstream
         logger.info("放置场景模型: {}", card.displayName);
+=======
+        logger.info("Placed scene model: {}", card.displayName);
+>>>>>>> Stashed changes
         this.clearWidgets();
         this.init();
     }

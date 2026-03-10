@@ -8,6 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -162,6 +163,10 @@ public class MaidMMDModelManager {
             loadedModels.clear();
         }
     }
+
+    public static List<MMDModelManager.Model> getLoadedMaidModels() {
+        return List.copyOf(loadedModels.values());
+    }
     
     /**
      * 清理所有女仆模型绑定
@@ -178,10 +183,4 @@ public class MaidMMDModelManager {
         return maidModelBindings.size();
     }
 
-    /**
-     * 获取所有已加载的女仆模型快照（供 PerformanceHud 使用）
-     */
-    public static java.util.Collection<MMDModelManager.Model> getLoadedMaidModels() {
-        return loadedModels.values();
-    }
 }

@@ -490,6 +490,10 @@ public class MMDModelManager {
         return result;
     }
 
+    public static void onModelSwitch() {
+        MMDTextureManager.clearPreloaded();
+    }
+
     /**
      * 释放模型资源
      */

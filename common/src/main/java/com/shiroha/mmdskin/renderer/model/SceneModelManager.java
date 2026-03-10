@@ -24,8 +24,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
+<<<<<<< Updated upstream
  * 场景模型管理器
  * 管理放置在世界中的静态 MMD 场景模型的生命周期
+=======
+ * Manages placed scene models in the world.
+>>>>>>> Stashed changes
  */
 public final class SceneModelManager {
     private static final Logger logger = LogManager.getLogger();
@@ -71,7 +75,11 @@ public final class SceneModelManager {
 
         ModelInfo info = scanSceneModelByFolder(folderName);
         if (info == null) {
+<<<<<<< Updated upstream
             logger.warn("场景模型未找到: {}", folderName);
+=======
+            logger.warn("Scene model not found: {}", folderName);
+>>>>>>> Stashed changes
             this.active = false;
             return;
         }
@@ -96,12 +104,16 @@ public final class SceneModelManager {
     }
 
     /**
+<<<<<<< Updated upstream
      * 每帧渲染调用（由 PlayerMixinDelegate 在本地玩家渲染后调用）
      * PoseStack 原点为玩家插值渲染位置
      *
      * 关键：世界空间偏移必须在 PoseStack 上直接 translate，而非通过 entityTrans 传递。
      * 原因：doRenderModel 中旋转(entityYaw)在 entityTrans 平移之前应用，
      * 若将偏移放在 entityTrans 中，偏移方向会随模型朝向旋转导致位置错误。
+=======
+     * Renders the placed scene model relative to the player render origin.
+>>>>>>> Stashed changes
      */
     public void renderScene(PoseStack matrixStack, float tickDelta, int packedLight,
                             double entityRenderX, double entityRenderY, double entityRenderZ) {
@@ -119,7 +131,11 @@ public final class SceneModelManager {
         float posZ = (float)(placeZ * AbstractMMDModel.MODEL_SCALE);
         float yawRad = placeYaw * ((float) Math.PI / 180F);
 
+<<<<<<< Updated upstream
         // 渲染前设置物理位置（handleLivingEntity 会用玩家坐标覆盖，渲染后需再次修正）
+=======
+        // Keep the native model transform aligned before and after rendering.
+>>>>>>> Stashed changes
         nf.SetModelPositionAndYaw(handle, posX, posY, posZ, yawRad);
 
         float offsetX = (float)(placeX - entityRenderX);
@@ -147,7 +163,11 @@ public final class SceneModelManager {
             loading = false;
 
             if (result == null || result.modelHandle == 0) {
+<<<<<<< Updated upstream
                 logger.error("场景模型加载失败: {}", sceneModelName);
+=======
+                logger.error("Scene model load failed: {}", sceneModelName);
+>>>>>>> Stashed changes
                 active = false;
                 return;
             }
@@ -155,7 +175,11 @@ public final class SceneModelManager {
             IMMDModel m = RenderModeManager.createModelFromHandle(
                     result.modelHandle, result.modelInfo.getFolderPath(), result.modelInfo.isPMD());
             if (m == null) {
+<<<<<<< Updated upstream
                 logger.error("场景模型 GL 资源创建失败: {}", sceneModelName);
+=======
+                logger.error("Scene model GL resource creation failed: {}", sceneModelName);
+>>>>>>> Stashed changes
                 NativeFunc.GetInst().DeleteModel(result.modelHandle);
                 active = false;
                 return;
@@ -171,9 +195,15 @@ public final class SceneModelManager {
             float yawRad = placeYaw * ((float) Math.PI / 180F);
             nativeFunc.SetModelPositionAndYaw(m.getModelHandle(), posX, posY, posZ, yawRad);
 
+<<<<<<< Updated upstream
             logger.info("场景模型加载完成: {}", sceneModelName);
         } catch (Exception e) {
             logger.error("场景模型加载异常: {}", sceneModelName, e);
+=======
+            logger.info("Scene model loaded: {}", sceneModelName);
+        } catch (Exception e) {
+            logger.error("Scene model load error: {}", sceneModelName, e);
+>>>>>>> Stashed changes
             pendingLoad = null;
             loading = false;
             active = false;
@@ -198,7 +228,11 @@ public final class SceneModelManager {
                 preloadTextures(nf, handle, modelInfo.getFolderPath());
                 return new LoadResult(handle, modelInfo);
             } catch (Exception e) {
+<<<<<<< Updated upstream
                 logger.error("场景模型后台加载异常", e);
+=======
+                logger.error("Scene model background load error", e);
+>>>>>>> Stashed changes
                 if (handle != 0) {
                     try { NativeFunc.GetInst().DeleteModel(handle); } catch (Exception ignored) {}
                 }
@@ -217,7 +251,11 @@ public final class SceneModelManager {
                 }
             }
         } catch (Exception e) {
+<<<<<<< Updated upstream
             logger.warn("场景模型纹理预解码部分失败", e);
+=======
+            logger.warn("Scene texture preload partially failed", e);
+>>>>>>> Stashed changes
         }
     }
 
@@ -231,7 +269,11 @@ public final class SceneModelManager {
         }
     }
 
+<<<<<<< Updated upstream
     // ===== 场景模型扫描 =====
+=======
+    // Scene model scanning.
+>>>>>>> Stashed changes
 
     private static volatile List<ModelInfo> sceneModelCache;
     private static volatile long sceneCacheTimestamp;

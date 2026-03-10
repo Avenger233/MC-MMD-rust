@@ -5,6 +5,7 @@ import com.shiroha.mmdskin.renderer.model.MMDModelManager;
 import com.shiroha.mmdskin.renderer.render.MmdSkinRendererPlayerHelper;
 import com.shiroha.mmdskin.renderer.render.PlayerModelResolver;
 import com.shiroha.mmdskin.renderer.render.StageAnimSyncHelper;
+import com.shiroha.mmdskin.stage.application.StageSessionService;
 import com.shiroha.mmdskin.ui.network.StageNetworkHandler;
 import com.shiroha.mmdskin.ui.stage.StageSelectScreen;
 import net.minecraft.client.CameraType;
@@ -21,6 +22,7 @@ public class MMDCameraController {
     private static final Logger logger = LogManager.getLogger();
 
     private static final MMDCameraController INSTANCE = new MMDCameraController();
+    private final StageSessionService stageSessionService = StageSessionService.getInstance();
 
     private static final float MMD_TO_MC_SCALE = 0.09f;
     private static final float VMD_FPS = 30.0f;
@@ -118,9 +120,7 @@ public class MMDCameraController {
         this.lastEscTimeNs = 0;
         this.mouseReleased = false;
         
-        com.shiroha.mmdskin.ui.stage.StageInviteManager mgr = 
-            com.shiroha.mmdskin.ui.stage.StageInviteManager.getInstance();
-        if (mgr.getWatchingHostUUID() == null) {
+        if (stageSessionService.getHostPlayerId() == null) {
             this.waitingForHost = false;
         }
         
@@ -162,6 +162,9 @@ public class MMDCameraController {
         } else {
             this.maxFrame = 0;
         }
+
+        this.cinematicMode = cinematic;
+        this.cameraHeightOffset = heightOffset;
 
         if (cinematic) {
             Minecraft mc = Minecraft.getInstance();
@@ -231,18 +234,16 @@ public class MMDCameraController {
         this.outroElapsed = 0.0f;
         this.lastTickTimeNs = System.nanoTime();
 
-        com.shiroha.mmdskin.ui.stage.StageInviteManager mgr =
-                com.shiroha.mmdskin.ui.stage.StageInviteManager.getInstance();
-        this.outroIsGuest = mgr.isWatchingStage();
+        this.outroIsGuest = stageSessionService.isWatchingStage();
         this.state = StageState.OUTRO;
 
         if (outroIsGuest) {
             StageAnimSyncHelper.endStageAnim(Minecraft.getInstance().player);
-            StageNetworkHandler.sendStageEnd();
-            mgr.stopWatching();
+            StageNetworkHandler.sendRemoteStageStop();
+            stageSessionService.stopWatchingStageOnly();
         } else {
-            StageNetworkHandler.sendStageEnd();
-            mgr.notifyMembersStageEnd();
+            StageNetworkHandler.sendRemoteStageStop();
+            stageSessionService.notifyMembersStageEnd();
         }
     }
 
@@ -291,17 +292,15 @@ public class MMDCameraController {
         this.maxFrame = 0.0f;
 
         if (wasPlaying) {
-            StageNetworkHandler.sendStageEnd();
-            com.shiroha.mmdskin.ui.stage.StageInviteManager mgr =
-                    com.shiroha.mmdskin.ui.stage.StageInviteManager.getInstance();
-            if (mgr.isWatchingStage()) {
+            StageNetworkHandler.sendRemoteStageStop();
+            if (stageSessionService.isWatchingStage()) {
                 if (mc.player != null) {
                     StageAnimSyncHelper.endStageAnim(mc.player);
                 }
                 this.waitingForHost = true;
                 mc.setScreen(new com.shiroha.mmdskin.ui.stage.StageSelectScreen());
             } else {
-                mgr.closeHostedSession();
+                stageSessionService.closeHostedSession();
             }
         }
 
@@ -410,17 +409,12 @@ public class MMDCameraController {
             return;
         }
 
-        // 只有房主广播帧同步
-        if (!com.shiroha.mmdskin.ui.stage.StageInviteManager.getInstance().isWatchingStage()) {
-            com.shiroha.mmdskin.renderer.render.StageAnimSyncHelper.syncAllRemoteStageFrame(currentFrame);
-            com.shiroha.mmdskin.renderer.render.StageAnimSyncHelper.syncLocalStageFrame(currentFrame);
+        syncStagePresentation(currentFrame);
+        if (stageSessionService.isSessionHost() && stageSessionService.getSessionId() != null) {
             frameSyncCounter++;
             if (frameSyncCounter >= SYNC_INTERVAL_FRAMES) {
                 frameSyncCounter = 0;
-                StageNetworkHandler.sendFrameSync(
-                        com.shiroha.mmdskin.ui.stage.StageInviteManager.getInstance().getSessionId(),
-                        currentFrame
-                );
+                StageNetworkHandler.sendFrameSync(stageSessionService.getSessionId(), currentFrame);
             }
         }
 
@@ -718,6 +712,9 @@ public class MMDCameraController {
         this.motionAnimHandle = motionAnim;
         this.modelHandle = modelHandle;
         this.modelName = modelName;
+        if (this.maxFrame <= 0.0f && motionAnim != 0) {
+            this.maxFrame = NativeFunc.GetInst().GetAnimMaxFrame(motionAnim);
+        }
         if (modelHandle != 0) {
             NativeFunc nf = NativeFunc.GetInst();
             nf.SetAutoBlinkEnabled(modelHandle, false);
@@ -731,6 +728,16 @@ public class MMDCameraController {
             audioPlayer.play();
         } else {
             logger.warn("[WATCHING] 音频加载失败: {}", audioPath);
+        }
+    }
+
+    public void syncAudioPosition(float seconds) {
+        if (!audioPlayer.isLoaded()) {
+            return;
+        }
+        float current = audioPlayer.getPlaybackPosition();
+        if (Math.abs(current - seconds) > 0.15f) {
+            audioPlayer.setPlaybackPosition(seconds);
         }
     }
 
@@ -748,15 +755,13 @@ public class MMDCameraController {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        com.shiroha.mmdskin.ui.stage.StageInviteManager mgr = 
-            com.shiroha.mmdskin.ui.stage.StageInviteManager.getInstance();
             
         if (mc.player != null) {
             com.shiroha.mmdskin.renderer.render.StageAnimSyncHelper.endStageAnim(mc.player);
-            StageNetworkHandler.sendStageEnd();
-            
-            if (sendLeave && mgr.getWatchingHostUUID() != null) {
-                StageNetworkHandler.sendLeave(mgr.getWatchingHostUUID());
+            StageNetworkHandler.sendRemoteStageStop();
+
+            if (sendLeave && stageSessionService.getHostPlayerId() != null) {
+                StageNetworkHandler.sendLeave(stageSessionService.getHostPlayerId());
             }
 
             this.anchorX = mc.player.getX();
@@ -801,10 +806,10 @@ public class MMDCameraController {
         restoreMouseGrab();
 
         if (sendLeave) {
-            mgr.stopWatching();
+            stageSessionService.stopWatching();
             this.watchingHostUUID = null;
         } else {
-            mgr.stopWatchingStageOnly();
+            stageSessionService.stopWatchingStageOnly();
             this.waitingForHost = true;
         }
         
@@ -857,18 +862,6 @@ public class MMDCameraController {
             }
         }
 
-        if (watchCameraAnimHandle == 0) {
-            float yawRad = (float) Math.toRadians(anchorYaw);
-            cameraX = anchorX - Math.sin(yawRad) * 3.5;
-            cameraY = anchorY + 1.8;
-            cameraZ = anchorZ + Math.cos(yawRad) * 3.5;
-            cameraYaw = anchorYaw + 180.0f;
-            cameraPitch = 15.0f;
-            cameraFov = 70.0f;
-            cameraRoll = 0.0f;
-            return;
-        }
-
         long now = System.nanoTime();
         float deltaTime = (now - lastTickTimeNs) / 1_000_000_000.0f;
         lastTickTimeNs = now;
@@ -888,6 +881,20 @@ public class MMDCameraController {
 
         if (currentFrame >= maxFrame) {
             exitWatchMode();
+            return;
+        }
+
+        syncStagePresentation(currentFrame);
+
+        if (watchCameraAnimHandle == 0) {
+            float yawRad = (float) Math.toRadians(anchorYaw);
+            cameraX = anchorX - Math.sin(yawRad) * 3.5;
+            cameraY = anchorY + 1.8;
+            cameraZ = anchorZ + Math.cos(yawRad) * 3.5;
+            cameraYaw = anchorYaw + 180.0f;
+            cameraPitch = 15.0f;
+            cameraFov = 70.0f;
+            cameraRoll = 0.0f;
             return;
         }
 
@@ -914,6 +921,12 @@ public class MMDCameraController {
     public void onFrameSync(float hostFrame) {
         if (state != StageState.WATCHING && state != StageState.PLAYING) return;
         this.targetSyncFrame = hostFrame;
+    }
+
+    private void syncStagePresentation(float frame) {
+        StageAnimSyncHelper.syncAllRemoteStageFrame(frame);
+        StageAnimSyncHelper.syncLocalStageFrame(frame);
+        syncAudioPosition(frame / VMD_FPS);
     }
 
     public boolean isWatching() {

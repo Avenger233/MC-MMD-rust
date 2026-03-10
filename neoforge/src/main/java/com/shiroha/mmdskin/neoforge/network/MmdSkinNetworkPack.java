@@ -5,10 +5,10 @@ import java.util.UUID;
 import com.shiroha.mmdskin.MmdSkin;
 import com.shiroha.mmdskin.maid.MaidMMDModelManager;
 import com.shiroha.mmdskin.neoforge.register.MmdSkinAttachments;
+import com.shiroha.mmdskin.neoforge.stage.NeoForgeStageSessionRegistry;
 import com.shiroha.mmdskin.renderer.animation.PendingAnimSignalCache;
 import com.shiroha.mmdskin.renderer.render.MmdSkinRendererPlayerHelper;
 import com.shiroha.mmdskin.renderer.render.MorphSyncHelper;
-import com.shiroha.mmdskin.renderer.render.StageAnimSyncHelper;
 import com.shiroha.mmdskin.ui.network.NetworkOpCode;
 import com.shiroha.mmdskin.ui.network.PlayerModelSyncManager;
 import net.minecraft.client.Minecraft;
@@ -121,6 +121,11 @@ public record MmdSkinNetworkPack(int opCode, UUID playerUUID, String animId, int
             return;
         }
 
+        if (pack.opCode == NetworkOpCode.STAGE_MULTI) {
+            NeoForgeStageSessionRegistry.getInstance().handlePacket(sender.getServer(), sender, pack.animId);
+            return;
+        }
+
         // 女仆模型绑定存入附件
         if (pack.opCode == NetworkOpCode.MAID_MODEL) {
             Entity entity = sender.level().getEntity(pack.arg0);
@@ -146,8 +151,12 @@ public record MmdSkinNetworkPack(int opCode, UUID playerUUID, String animId, int
 
     private void handleClient() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null) return;
-        if (this.playerUUID.equals(mc.player.getUUID())) return;
+        if (mc.player == null) return;
+        if (this.opCode == NetworkOpCode.STAGE_MULTI) {
+            com.shiroha.mmdskin.stage.client.StageClientPacketHandler.getInstance().handle(this.playerUUID, this.animId);
+            return;
+        }
+        if (mc.level == null || this.playerUUID.equals(mc.player.getUUID())) return;
 
         Player target = mc.level.getPlayerByUUID(this.playerUUID);
 
@@ -169,22 +178,6 @@ public record MmdSkinNetworkPack(int opCode, UUID playerUUID, String animId, int
                 }
                 case NetworkOpCode.MORPH_SYNC -> {
                     if (target != null) MorphSyncHelper.applyRemoteMorph(target, this.animId);
-                }
-                case NetworkOpCode.STAGE_START -> {
-                    if (target != null) StageAnimSyncHelper.startStageAnim(target, this.animId);
-                }
-                case NetworkOpCode.STAGE_END -> {
-                    if (target != null) {
-                        StageAnimSyncHelper.endStageAnim(target);
-                    } else {
-                        PendingAnimSignalCache.put(this.playerUUID, PendingAnimSignalCache.SignalType.STAGE_END);
-                    }
-                }
-                case NetworkOpCode.STAGE_AUDIO -> {
-                    if (target != null) MmdSkinRendererPlayerHelper.StageAudioPlay(target, this.animId);
-                }
-                case NetworkOpCode.STAGE_MULTI -> {
-                    com.shiroha.mmdskin.ui.network.StageMultiHandler.handle(this.playerUUID, this.animId);
                 }
                 default -> {}
             }

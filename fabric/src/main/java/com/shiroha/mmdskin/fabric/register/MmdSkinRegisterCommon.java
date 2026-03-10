@@ -1,6 +1,7 @@
 package com.shiroha.mmdskin.fabric.register;
 
 import com.shiroha.mmdskin.fabric.network.MmdSkinPayload;
+import com.shiroha.mmdskin.fabric.stage.FabricStageSessionRegistry;
 import com.shiroha.mmdskin.ui.network.NetworkOpCode;
 import com.shiroha.mmdskin.ui.network.ServerModelRegistry;
 
@@ -53,7 +54,15 @@ public class MmdSkinRegisterCommon {
                 return;
             }
 
-            // 用真实 UUID 重建 Payload 后转发
+            if (opCode == NetworkOpCode.STAGE_MULTI) {
+                String stagePayload = payload.stringArg();
+                if (stagePayload != null && !stagePayload.isEmpty()) {
+                    context.server().execute(() ->
+                            FabricStageSessionRegistry.getInstance().handlePacket(context.server(), player, stagePayload));
+                }
+                return;
+            }
+
             MmdSkinPayload corrected = new MmdSkinPayload(
                     opCode, realUUID, payload.intArg(), payload.entityId(),
                     payload.stringArg(), payload.binaryData());
@@ -69,6 +78,9 @@ public class MmdSkinRegisterCommon {
 
         // 玩家离线时清理服务端注册表
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
-                (handler, server) -> ServerModelRegistry.onPlayerLeave(handler.getPlayer().getUUID()));
+                (handler, server) -> {
+                    ServerModelRegistry.onPlayerLeave(handler.getPlayer().getUUID());
+                    FabricStageSessionRegistry.getInstance().onPlayerDisconnect(server, handler.getPlayer());
+                });
     }
 }
