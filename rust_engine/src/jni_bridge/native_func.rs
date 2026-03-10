@@ -14,7 +14,7 @@ use super::{
     register_animation, register_model, register_texture, ANIMATIONS, FBX_CACHE, MODELS, TEXTURES,
 };
 
-const VERSION: &str = "v1.0.3";
+const VERSION: &str = "v1.0.4";
 
 /// 获取版本号
 #[no_mangle]
