@@ -97,6 +97,11 @@ public class MmdSkinRegisterClient {
     // 是否已注册网络发送器
     private static boolean networkSendersRegistered = false;
 
+    private static boolean canSendToServer() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.getConnection() != null && mc.getConnection().hasChannel(MmdSkinRegisterCommon.CHANNEL_ID);
+    }
+
     /**
      * 主注册方法 - 在客户端初始化时调用
      * 注册事件监听器到两个事件总线
@@ -120,60 +125,60 @@ public class MmdSkinRegisterClient {
         ActionWheelNetworkHandler.getInstance().setNetworkSender(animId -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.CUSTOM_ANIM, player.getUUID(), animId));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.CUSTOM_ANIM, player.getUUID(), animId));
             }
         });
         
         ActionWheelNetworkHandler.getInstance().setAnimStopSender(() -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.withArg(NetworkOpCode.RESET_PHYSICS, player.getUUID(), 0));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.withArg(NetworkOpCode.RESET_PHYSICS, player.getUUID(), 0));
             }
         });
         
         MorphWheelNetworkHandler.getInstance().setNetworkSender(morphName -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MORPH_SYNC, player.getUUID(), morphName));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MORPH_SYNC, player.getUUID(), morphName));
             }
         });
         
         com.shiroha.mmdskin.ui.network.ModelSelectorNetworkHandler.getInstance().setNetworkSender(modelName -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MODEL_SELECT, player.getUUID(), modelName));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MODEL_SELECT, player.getUUID(), modelName));
             }
         });
         
         PlayerModelSyncManager.setNetworkBroadcaster((playerUUID, modelName) -> {
-            PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MODEL_SELECT, playerUUID, modelName));
+            if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.MODEL_SELECT, playerUUID, modelName));
         });
         
         MaidModelNetworkHandler.getInstance().setNetworkSender((entityId, modelName) -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.forMaid(NetworkOpCode.MAID_MODEL, player.getUUID(), entityId, modelName));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.forMaid(NetworkOpCode.MAID_MODEL, player.getUUID(), entityId, modelName));
             }
         });
         
         MaidActionNetworkHandler.getInstance().setNetworkSender((entityId, animId) -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.forMaid(NetworkOpCode.MAID_ACTION, player.getUUID(), entityId, animId));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.forMaid(NetworkOpCode.MAID_ACTION, player.getUUID(), entityId, animId));
             }
         });
         
         StageNetworkHandler.setStageMultiSender(data -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.STAGE_MULTI, player.getUUID(), data));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.STAGE_MULTI, player.getUUID(), data));
             }
         });
         
         BoneSyncNetworkHandler.setNetworkSender(boneData -> {
             LocalPlayer player = MCinstance.player;
             if (player != null) {
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.withBinary(NetworkOpCode.BONE_SYNC, player.getUUID(), boneData));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.withBinary(NetworkOpCode.BONE_SYNC, player.getUUID(), boneData));
             }
         });
     }
@@ -301,7 +306,7 @@ public class MmdSkinRegisterClient {
                     !selectedModel.equals(com.shiroha.mmdskin.config.UIConstants.DEFAULT_MODEL_NAME)) {
                     PlayerModelSyncManager.broadcastLocalModelSelection(mc.player.getUUID(), selectedModel);
                 }
-                PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.REQUEST_ALL_MODELS, mc.player.getUUID(), ""));
+                if (canSendToServer()) PacketDistributor.sendToServer(MmdSkinNetworkPack.withAnimId(NetworkOpCode.REQUEST_ALL_MODELS, mc.player.getUUID(), ""));
             }
         }
         

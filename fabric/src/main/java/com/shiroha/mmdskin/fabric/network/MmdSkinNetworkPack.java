@@ -19,19 +19,27 @@ import net.minecraft.world.entity.player.Player;
  */
 public class MmdSkinNetworkPack {
 
+    private static boolean canSendToServer() {
+        return ClientPlayNetworking.canSend(MmdSkinPayload.TYPE);
+    }
+
     public static void sendToServer(int opCode, UUID playerUUID, int arg0) {
+        if (!canSendToServer()) return;
         ClientPlayNetworking.send(MmdSkinPayload.createInt(opCode, playerUUID, arg0));
     }
 
     public static void sendBinaryToServer(int opCode, UUID playerUUID, byte[] data) {
+        if (!canSendToServer()) return;
         ClientPlayNetworking.send(MmdSkinPayload.createBinary(opCode, playerUUID, data));
     }
 
     public static void sendToServer(int opCode, UUID playerUUID, String animId) {
+        if (!canSendToServer()) return;
         ClientPlayNetworking.send(MmdSkinPayload.createString(opCode, playerUUID, animId));
     }
 
     public static void sendToServer(int opCode, UUID playerUUID, int entityId, String data) {
+        if (!canSendToServer()) return;
         ClientPlayNetworking.send(MmdSkinPayload.createMaid(opCode, playerUUID, entityId, data));
     }
 
