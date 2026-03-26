@@ -10,20 +10,21 @@ displayName = "${mod_name}"
 authors = "${mod_authors}"
 description = '''${mod_description}'''
 logoFile = "icon.png"
+displayTest = "IGNORE_SERVER_VERSION"
 
 [[dependencies.mmdskin]]
 modId = "neoforge"
 type = "required"
 versionRange = "${neoforge_version_range}"
 ordering = "NONE"
-side = "BOTH"
+side = "CLIENT"
 
 [[dependencies.mmdskin]]
 modId = "minecraft"
 type = "required"
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
-side = "BOTH"
+side = "CLIENT"
 
 [[dependencies.mmdskin]]
 modId = "cloth_config"
