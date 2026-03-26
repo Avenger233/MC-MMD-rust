@@ -25,7 +25,7 @@ public class MmdSkinRegisterCommon {
     }
     
     public static void onRegisterPayloadHandlers(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar(MmdSkin.MOD_ID);
+        PayloadRegistrar registrar = event.registrar(MmdSkin.MOD_ID).optional();
         registrar.playBidirectional(
             MmdSkinNetworkPack.TYPE,
             MmdSkinNetworkPack.STREAM_CODEC,
